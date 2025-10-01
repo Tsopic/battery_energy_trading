@@ -16,6 +16,7 @@ from .const import (
     SWITCH_ENABLE_FORCED_CHARGING,
     SWITCH_ENABLE_FORCED_DISCHARGE,
     SWITCH_ENABLE_EXPORT_MANAGEMENT,
+    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,6 +52,14 @@ async def async_setup_entry(
             "mdi:transmission-tower-export",
             "Manage grid export based on price thresholds",
             True,  # Default: enabled
+        ),
+        BatteryTradingSwitch(
+            entry,
+            SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
+            "Enable Multi-Day Optimization",
+            "mdi:calendar-multiple",
+            "Optimize across today + tomorrow using price forecasts and solar estimates",
+            True,  # Default: enabled - maximizes revenue potential
         ),
     ]
 

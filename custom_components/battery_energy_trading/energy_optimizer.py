@@ -16,6 +16,33 @@ class EnergyOptimizer:
         self._battery_discharge_rate = 5.0  # kW default discharge rate
 
     @staticmethod
+    def _merge_price_data(
+        raw_today: list[dict[str, Any]],
+        raw_tomorrow: list[dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
+        """Merge today and tomorrow price data.
+
+        Args:
+            raw_today: Today's price data
+            raw_tomorrow: Tomorrow's price data (optional)
+
+        Returns:
+            Combined list of price slots
+        """
+        if not raw_tomorrow:
+            return raw_today
+
+        # Filter out any overlapping slots (tomorrow's data might include end of today)
+        if raw_today:
+            last_today_time = raw_today[-1]["end"]
+            raw_tomorrow = [
+                slot for slot in raw_tomorrow
+                if slot["start"] >= last_today_time
+            ]
+
+        return raw_today + raw_tomorrow
+
+    @staticmethod
     def _calculate_slot_duration(raw_prices: list[dict[str, Any]]) -> float:
         """Calculate slot duration from price data.
 
@@ -31,6 +58,51 @@ class EnergyOptimizer:
             ).total_seconds() / 3600.0
         return 0.25  # Default to 15 minutes
 
+    @staticmethod
+    def _estimate_solar_impact(
+        price_slots: list[dict[str, Any]],
+        solar_forecast_data: dict[str, Any] | None,
+        battery_capacity: float,
+        current_battery_level: float,
+    ) -> dict[datetime, float]:
+        """Estimate battery level changes from solar forecast.
+
+        Args:
+            price_slots: List of price slots to evaluate
+            solar_forecast_data: Solar forecast data with hourly estimates
+            battery_capacity: Battery capacity in kWh
+            current_battery_level: Current battery level in %
+
+        Returns:
+            Dictionary mapping datetime to estimated battery level (%)
+        """
+        battery_levels = {}
+
+        if not solar_forecast_data or not price_slots:
+            return battery_levels
+
+        # Get hourly solar forecast from sensor attributes
+        # Forecast.Solar and Solcast provide "wh_hours" with hourly estimates
+        wh_hours = solar_forecast_data.get("wh_hours", {})
+
+        current_level = current_battery_level
+        for slot in price_slots:
+            slot_start = slot["start"]
+
+            # Get solar generation estimate for this hour (convert Wh to kWh)
+            hour_key = slot_start.strftime("%Y-%m-%d %H:%M:%S")
+            solar_kwh = wh_hours.get(hour_key, 0) / 1000.0
+
+            # Estimate battery charge from solar (simplified - assumes all solar goes to battery)
+            # In reality, household consumption would reduce this
+            if solar_kwh > 0:
+                level_increase = (solar_kwh / battery_capacity) * 100.0
+                current_level = min(100.0, current_level + level_increase)
+
+            battery_levels[slot_start] = current_level
+
+        return battery_levels
+
     def select_discharge_slots(
         self,
         raw_prices: list[dict[str, Any]],
@@ -39,6 +111,9 @@ class EnergyOptimizer:
         battery_level: float,
         discharge_rate: float = 5.0,
         max_hours: float | None = None,
+        raw_tomorrow: list[dict[str, Any]] | None = None,
+        solar_forecast_data: dict[str, Any] | None = None,
+        multiday_enabled: bool = False,
     ) -> list[dict[str, Any]]:
         """
         Intelligently select discharge time slots based on price and battery capacity.
@@ -50,6 +125,9 @@ class EnergyOptimizer:
             battery_level: Current battery level in percentage (0-100)
             discharge_rate: Battery discharge rate in kW (default 5.0 kW)
             max_hours: Maximum hours to discharge (None = unlimited, 0 = use battery capacity limit only)
+            raw_tomorrow: Tomorrow's price data (optional, for multi-day optimization)
+            solar_forecast_data: Solar forecast data (optional, for battery level estimation)
+            multiday_enabled: Enable multi-day optimization across today + tomorrow
 
         Returns:
             List of selected discharge slots with calculated energy amounts
@@ -57,6 +135,25 @@ class EnergyOptimizer:
         if not raw_prices:
             _LOGGER.warning("No price data available for discharge slot selection")
             return []
+
+        # Merge today + tomorrow if multi-day optimization is enabled
+        if multiday_enabled and raw_tomorrow:
+            all_prices = self._merge_price_data(raw_prices, raw_tomorrow)
+            _LOGGER.debug(
+                "Multi-day optimization enabled: %d today slots + %d tomorrow slots = %d total",
+                len(raw_prices), len(raw_tomorrow), len(all_prices)
+            )
+        else:
+            all_prices = raw_prices
+
+        # Estimate battery levels from solar forecast if provided
+        solar_battery_estimates = {}
+        if solar_forecast_data and multiday_enabled:
+            solar_battery_estimates = self._estimate_solar_impact(
+                all_prices, solar_forecast_data, battery_capacity, battery_level
+            )
+            if solar_battery_estimates:
+                _LOGGER.debug("Solar forecast impact: battery levels estimated for %d slots", len(solar_battery_estimates))
 
         # Calculate available energy in battery
         available_energy = (battery_capacity * battery_level) / 100.0  # kWh
@@ -66,15 +163,16 @@ class EnergyOptimizer:
             return []
 
         # Determine slot duration (15min or 60min)
-        slot_duration_hours = self._calculate_slot_duration(raw_prices)
+        slot_duration_hours = self._calculate_slot_duration(all_prices)
 
         # Energy per slot based on discharge rate and duration
         energy_per_slot = discharge_rate * slot_duration_hours  # kWh
 
-        # Calculate how many slots we can discharge
+        # Calculate how many slots we can discharge (accounting for solar recharge)
+        # If we have solar estimates, we may have more energy available in future slots
         max_discharge_slots = int(available_energy / energy_per_slot)
 
-        if max_discharge_slots == 0:
+        if max_discharge_slots == 0 and not solar_battery_estimates:
             _LOGGER.info(
                 "Battery capacity too low for discharge: %.2f kWh available, %.2f kWh per slot",
                 available_energy,
@@ -84,7 +182,7 @@ class EnergyOptimizer:
 
         # Filter slots above minimum price
         profitable_slots = [
-            slot for slot in raw_prices if slot["value"] >= min_sell_price
+            slot for slot in all_prices if slot["value"] >= min_sell_price
         ]
 
         if not profitable_slots:
@@ -109,8 +207,16 @@ class EnergyOptimizer:
         total_energy_to_discharge = 0.0
 
         for slot in sorted_slots[:num_slots]:
+            # Check if solar forecast predicts higher battery level at this time
+            slot_battery_level = solar_battery_estimates.get(slot["start"])
+            if slot_battery_level is not None:
+                # Recalculate available energy based on solar forecast
+                slot_available_energy = (battery_capacity * slot_battery_level) / 100.0
+            else:
+                slot_available_energy = available_energy
+
             energy_this_slot = min(
-                energy_per_slot, available_energy - total_energy_to_discharge
+                energy_per_slot, slot_available_energy - total_energy_to_discharge
             )
 
             if energy_this_slot > 0:
@@ -122,15 +228,17 @@ class EnergyOptimizer:
                         "energy_kwh": energy_this_slot,
                         "revenue": energy_this_slot * slot["value"],
                         "duration_hours": slot_duration_hours,
+                        "estimated_battery_level": slot_battery_level,
                     }
                 )
                 total_energy_to_discharge += energy_this_slot
 
         _LOGGER.info(
-            "Selected %d discharge slots, total energy: %.2f kWh, estimated revenue: %.2f EUR",
+            "Selected %d discharge slots, total energy: %.2f kWh, estimated revenue: %.2f EUR%s",
             len(selected_slots),
             total_energy_to_discharge,
             sum(s["revenue"] for s in selected_slots),
+            " (multi-day with solar forecast)" if solar_battery_estimates else "",
         )
 
         return selected_slots
@@ -144,6 +252,9 @@ class EnergyOptimizer:
         target_level: float,
         charge_rate: float = 5.0,
         max_slots: int | None = None,
+        raw_tomorrow: list[dict[str, Any]] | None = None,
+        solar_forecast_data: dict[str, Any] | None = None,
+        multiday_enabled: bool = False,
     ) -> list[dict[str, Any]]:
         """
         Intelligently select charging time slots based on price and battery needs.
@@ -156,6 +267,9 @@ class EnergyOptimizer:
             target_level: Target battery level in percentage (0-100)
             charge_rate: Battery charge rate in kW (default 5.0 kW)
             max_slots: Maximum number of slots to select (optional)
+            raw_tomorrow: Tomorrow's price data (optional, for multi-day optimization)
+            solar_forecast_data: Solar forecast data (optional, reduces charging need)
+            multiday_enabled: Enable multi-day optimization across today + tomorrow
 
         Returns:
             List of selected charging slots with calculated energy amounts
@@ -164,17 +278,48 @@ class EnergyOptimizer:
             _LOGGER.warning("No price data available for charging slot selection")
             return []
 
-        # Calculate needed energy
+        # Merge today + tomorrow if multi-day optimization is enabled
+        if multiday_enabled and raw_tomorrow:
+            all_prices = self._merge_price_data(raw_prices, raw_tomorrow)
+            _LOGGER.debug(
+                "Multi-day charging optimization: %d today slots + %d tomorrow slots = %d total",
+                len(raw_prices), len(raw_tomorrow), len(all_prices)
+            )
+        else:
+            all_prices = raw_prices
+
+        # Estimate battery levels from solar forecast if provided
+        solar_battery_estimates = {}
+        if solar_forecast_data and multiday_enabled:
+            solar_battery_estimates = self._estimate_solar_impact(
+                all_prices, solar_forecast_data, battery_capacity, battery_level
+            )
+            if solar_battery_estimates:
+                _LOGGER.debug("Solar forecast reduces charging need - battery levels estimated for %d slots", len(solar_battery_estimates))
+
+        # Calculate needed energy (accounting for solar if forecast available)
         current_energy = (battery_capacity * battery_level) / 100.0
         target_energy = (battery_capacity * target_level) / 100.0
         needed_energy = max(0, target_energy - current_energy)
+
+        # If we have solar estimates, we may need less grid charging
+        if solar_battery_estimates:
+            # Find the maximum estimated battery level from solar alone
+            max_solar_level = max(solar_battery_estimates.values(), default=battery_level)
+            if max_solar_level >= target_level:
+                _LOGGER.info("Solar forecast shows battery will reach target (%.1f%%) without grid charging", max_solar_level)
+                return []
+            # Reduce needed energy by expected solar contribution
+            solar_energy_contribution = (battery_capacity * (max_solar_level - battery_level)) / 100.0
+            needed_energy = max(0, needed_energy - solar_energy_contribution)
+            _LOGGER.debug("Solar forecast reduces charging need by %.2f kWh (%.1f%% -> %.1f%%)", solar_energy_contribution, battery_level, max_solar_level)
 
         if needed_energy <= 0:
             _LOGGER.info("Battery already at or above target level")
             return []
 
         # Determine slot duration
-        slot_duration_hours = self._calculate_slot_duration(raw_prices)
+        slot_duration_hours = self._calculate_slot_duration(all_prices)
 
         # Energy per slot
         energy_per_slot = charge_rate * slot_duration_hours
@@ -184,7 +329,7 @@ class EnergyOptimizer:
 
         # Filter slots below max price
         economical_slots = [
-            slot for slot in raw_prices if slot["value"] <= max_charge_price
+            slot for slot in all_prices if slot["value"] <= max_charge_price
         ]
 
         if not economical_slots:
@@ -223,10 +368,11 @@ class EnergyOptimizer:
                 total_energy_to_charge += energy_this_slot
 
         _LOGGER.info(
-            "Selected %d charging slots, total energy: %.2f kWh, estimated cost: %.2f EUR",
+            "Selected %d charging slots, total energy: %.2f kWh, estimated cost: %.2f EUR%s",
             len(selected_slots),
             total_energy_to_charge,
             sum(s["cost"] for s in selected_slots),
+            " (multi-day with solar forecast)" if solar_battery_estimates else "",
         )
 
         return selected_slots
