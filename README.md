@@ -3,6 +3,9 @@
 [![GitHub Release](https://img.shields.io/github/v/release/Tsopic/battery_energy_trading)](https://github.com/Tsopic/battery_energy_trading/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
 
+> **⚠️ DEVELOPMENT STATUS**
+> This custom component is currently under active development and has not been fully tested in production environments. Use at your own risk and please report any issues you encounter.
+
 A comprehensive Home Assistant integration for intelligent battery management and energy trading optimization. Automatically buy energy when prices are low, sell when prices are high, and maximize solar energy utilization.
 
 ## 🎯 Features
