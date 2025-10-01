@@ -26,21 +26,23 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check if version needs update
+      - name: Get latest version
         id: check_version
         run: |
           # Get current version from manifest.json
           CURRENT_VERSION=$(jq -r '.version' custom_components/battery_energy_trading/manifest.json)
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-          # Check if tag already exists
-          if git rev-parse "v$CURRENT_VERSION" >/dev/null 2>&1; then
-            echo "NEEDS_RELEASE=false" >> $GITHUB_OUTPUT
-            echo "Tag v$CURRENT_VERSION already exists, skipping release"
-          else
-            echo "NEEDS_RELEASE=true" >> $GITHUB_OUTPUT
-            echo "No tag for v$CURRENT_VERSION, will create release"
-          fi
+          # Get the latest tag version (if exists)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_VERSION=${LATEST_TAG#v}
+          echo "LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+          echo "Current manifest version: $CURRENT_VERSION"
+          echo "Latest git tag version: $LATEST_VERSION"
+
+          # Always create release for new commits
+          echo "NEEDS_RELEASE=true" >> $GITHUB_OUTPUT
 
       - name: Get commit messages since last tag
         if: steps.check_version.outputs.NEEDS_RELEASE == 'true'
@@ -77,11 +79,11 @@ jobs:
         if: steps.check_version.outputs.NEEDS_RELEASE == 'true'
         id: calc_version
         run: |
-          CURRENT="${{ steps.check_version.outputs.CURRENT_VERSION }}"
+          LATEST="${{ steps.check_version.outputs.LATEST_VERSION }}"
           TYPE="${{ steps.get_commits.outputs.RELEASE_TYPE }}"
 
-          # Parse version
-          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT"
+          # Parse latest tag version
+          IFS='.' read -ra VERSION_PARTS <<< "$LATEST"
           MAJOR="${VERSION_PARTS[0]}"
           MINOR="${VERSION_PARTS[1]}"
           PATCH="${VERSION_PARTS[2]}"
@@ -100,7 +102,7 @@ jobs:
 
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "New version will be: $NEW_VERSION (type: $TYPE)"
+          echo "Bumping from $LATEST to $NEW_VERSION (type: $TYPE)"
 
       - name: Update manifest.json
         if: steps.check_version.outputs.NEEDS_RELEASE == 'true'
