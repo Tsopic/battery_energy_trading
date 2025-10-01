@@ -56,10 +56,10 @@ async def async_setup_entry(
         BatteryTradingSwitch(
             entry,
             SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
-            "Enable Multi-Day Optimization",
+            "Enable Multi-Day Optimization (Experimental)",
             "mdi:calendar-multiple",
             "Optimize across today + tomorrow using price forecasts and solar estimates",
-            True,  # Default: enabled - maximizes revenue potential
+            False,  # Default: disabled - experimental feature
         ),
     ]
 

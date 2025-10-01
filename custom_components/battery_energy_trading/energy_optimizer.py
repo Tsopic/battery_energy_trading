@@ -167,6 +167,126 @@ class EnergyOptimizer:
 
         return battery_levels
 
+    def _calculate_solar_between_slots(
+        self,
+        slot1: dict[str, Any],
+        slot2: dict[str, Any],
+        solar_forecast_data: dict[str, Any],
+    ) -> float:
+        """Calculate expected solar generation between two slots.
+
+        Args:
+            slot1: Earlier slot with 'end' datetime
+            slot2: Later slot with 'start' datetime
+            solar_forecast_data: Forecast with 'wh_hours' attribute
+
+        Returns:
+            Solar energy in kWh generated between slot1.end and slot2.start
+        """
+        if not solar_forecast_data or 'wh_hours' not in solar_forecast_data:
+            return 0.0
+
+        wh_hours = solar_forecast_data['wh_hours']
+        start_time = slot1['end']
+        end_time = slot2['start']
+
+        total_wh = 0.0
+        current_hour = start_time.replace(minute=0, second=0, microsecond=0)
+
+        while current_hour < end_time:
+            # Try multiple datetime formats for compatibility
+            for fmt in [
+                current_hour.isoformat(),
+                current_hour.replace(tzinfo=None).isoformat() if current_hour.tzinfo else current_hour.isoformat(),
+                current_hour.strftime("%Y-%m-%d %H:%M:%S"),
+            ]:
+                if fmt in wh_hours:
+                    try:
+                        total_wh += float(wh_hours[fmt])
+                        break
+                    except (ValueError, TypeError) as err:
+                        _LOGGER.debug("Failed to parse solar value for %s: %s", fmt, err)
+
+            current_hour += timedelta(hours=1)
+
+        return total_wh / 1000.0  # Convert Wh to kWh
+
+    def _project_battery_state(
+        self,
+        slots: list[dict[str, Any]],
+        initial_battery_kwh: float,
+        battery_capacity_kwh: float,
+        discharge_rate_kw: float,
+        slot_duration_hours: float,
+        solar_forecast_data: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Project battery state through selected slots accounting for solar recharge.
+
+        Args:
+            slots: List of candidate discharge slots (sorted by time)
+            initial_battery_kwh: Starting battery energy
+            battery_capacity_kwh: Maximum battery capacity
+            discharge_rate_kw: Discharge rate in kW
+            slot_duration_hours: Duration of each slot in hours
+            solar_forecast_data: Solar forecast with hourly generation
+
+        Returns:
+            List of slots with projected battery state and feasibility
+        """
+        current_battery = initial_battery_kwh
+        feasible_slots = []
+
+        # Sort slots by time (earliest first) for sequential projection
+        time_sorted = sorted(slots, key=lambda x: x['start'])
+
+        for i, slot in enumerate(time_sorted):
+            # Calculate solar generation between previous slot and this slot
+            if i > 0 and solar_forecast_data:
+                solar_kwh = self._calculate_solar_between_slots(
+                    time_sorted[i-1], slot, solar_forecast_data
+                )
+                if solar_kwh > 0:
+                    current_battery = min(
+                        current_battery + solar_kwh,
+                        battery_capacity_kwh
+                    )
+                    _LOGGER.debug(
+                        "Solar recharge +%.2f kWh between %s and %s (battery: %.2f kWh)",
+                        solar_kwh,
+                        time_sorted[i-1]['end'].strftime('%H:%M'),
+                        slot['start'].strftime('%H:%M'),
+                        current_battery
+                    )
+
+            # Calculate energy needed for this slot
+            energy_needed = discharge_rate_kw * slot_duration_hours
+
+            # Check if we have enough battery for this slot
+            if current_battery >= energy_needed:
+                slot_copy = slot.copy()
+                slot_copy['battery_before'] = current_battery
+                current_battery -= energy_needed
+                slot_copy['battery_after'] = current_battery
+                slot_copy['feasible'] = True
+                slot_copy['energy_kwh'] = energy_needed
+                feasible_slots.append(slot_copy)
+                _LOGGER.debug(
+                    "Slot %s feasible: %.2f kWh -> %.2f kWh (discharge %.2f kWh)",
+                    slot['start'].strftime('%H:%M'),
+                    slot_copy['battery_before'],
+                    slot_copy['battery_after'],
+                    energy_needed
+                )
+            else:
+                _LOGGER.debug(
+                    "Slot %s NOT feasible: insufficient battery (%.2f kWh < %.2f kWh needed)",
+                    slot['start'].strftime('%H:%M'),
+                    current_battery,
+                    energy_needed
+                )
+
+        return feasible_slots
+
     def select_discharge_slots(
         self,
         raw_prices: list[dict[str, Any]],
@@ -270,53 +390,112 @@ class EnergyOptimizer:
             )
             return []
 
-        # Sort by price (highest first)
-        sorted_slots = sorted(profitable_slots, key=lambda x: x["value"], reverse=True)
+        # Use battery state projection for intelligent multi-peak selection
+        if solar_forecast_data:
+            _LOGGER.debug("Using battery state projection with solar forecast for feasibility analysis")
 
-        # Calculate max slots from max_hours if specified
-        if max_hours is not None and max_hours > 0:
-            max_slots_from_hours = int(max_hours / slot_duration_hours)
-            num_slots = min(len(sorted_slots), max_discharge_slots, max_slots_from_hours)
-        else:
-            # No hour limit - use battery capacity as the only limit
-            num_slots = min(len(sorted_slots), max_discharge_slots)
-
-        selected_slots = []
-        total_energy_to_discharge = 0.0
-
-        for slot in sorted_slots[:num_slots]:
-            # Check if solar forecast predicts higher battery level at this time
-            slot_battery_level = solar_battery_estimates.get(slot["start"])
-            if slot_battery_level is not None:
-                # Recalculate available energy based on solar forecast
-                slot_available_energy = (battery_capacity * slot_battery_level) / 100.0
-            else:
-                slot_available_energy = available_energy
-
-            energy_this_slot = min(
-                energy_per_slot, slot_available_energy - total_energy_to_discharge
+            # Project battery state through all profitable slots (sorted by time)
+            feasible_slots = self._project_battery_state(
+                profitable_slots,
+                available_energy,
+                battery_capacity,
+                discharge_rate,
+                slot_duration_hours,
+                solar_forecast_data,
             )
 
-            if energy_this_slot > 0:
-                selected_slots.append(
+            if not feasible_slots:
+                _LOGGER.info("No feasible discharge slots found after battery state projection")
+                return []
+
+            # Re-sort feasible slots by price (highest first) for selection
+            price_sorted = sorted(feasible_slots, key=lambda x: x["price"], reverse=True)
+
+            # Apply max_hours limit if specified
+            if max_hours is not None and max_hours > 0:
+                max_slots_from_hours = int(max_hours / slot_duration_hours)
+                selected_slots = []
+                total_hours = 0.0
+
+                for slot in price_sorted:
+                    if total_hours + slot_duration_hours <= max_hours:
+                        selected_slots.append({
+                            "start": slot["start"],
+                            "end": slot["end"],
+                            "price": slot["price"],
+                            "energy_kwh": slot["energy_kwh"],
+                            "revenue": slot["energy_kwh"] * slot["price"],
+                            "duration_hours": slot_duration_hours,
+                            "battery_before": slot["battery_before"],
+                            "battery_after": slot["battery_after"],
+                        })
+                        total_hours += slot_duration_hours
+            else:
+                # No hour limit - return all feasible slots
+                selected_slots = [
                     {
                         "start": slot["start"],
                         "end": slot["end"],
-                        "price": slot["value"],
-                        "energy_kwh": energy_this_slot,
-                        "revenue": energy_this_slot * slot["value"],
+                        "price": slot["price"],
+                        "energy_kwh": slot["energy_kwh"],
+                        "revenue": slot["energy_kwh"] * slot["price"],
                         "duration_hours": slot_duration_hours,
-                        "estimated_battery_level": slot_battery_level,
+                        "battery_before": slot["battery_before"],
+                        "battery_after": slot["battery_after"],
                     }
+                    for slot in price_sorted
+                ]
+        else:
+            # Legacy behavior: simple price-based selection without battery projection
+            _LOGGER.debug("No solar forecast - using legacy price-based selection")
+
+            # Sort by price (highest first)
+            sorted_slots = sorted(profitable_slots, key=lambda x: x["value"], reverse=True)
+
+            # Calculate max slots from max_hours if specified
+            if max_hours is not None and max_hours > 0:
+                max_slots_from_hours = int(max_hours / slot_duration_hours)
+                num_slots = min(len(sorted_slots), max_discharge_slots, max_slots_from_hours)
+            else:
+                # No hour limit - use battery capacity as the only limit
+                num_slots = min(len(sorted_slots), max_discharge_slots)
+
+            selected_slots = []
+            total_energy_to_discharge = 0.0
+
+            for slot in sorted_slots[:num_slots]:
+                # Check if solar forecast predicts higher battery level at this time
+                slot_battery_level = solar_battery_estimates.get(slot["start"])
+                if slot_battery_level is not None:
+                    # Recalculate available energy based on solar forecast
+                    slot_available_energy = (battery_capacity * slot_battery_level) / 100.0
+                else:
+                    slot_available_energy = available_energy
+
+                energy_this_slot = min(
+                    energy_per_slot, slot_available_energy - total_energy_to_discharge
                 )
-                total_energy_to_discharge += energy_this_slot
+
+                if energy_this_slot > 0:
+                    selected_slots.append(
+                        {
+                            "start": slot["start"],
+                            "end": slot["end"],
+                            "price": slot["value"],
+                            "energy_kwh": energy_this_slot,
+                            "revenue": energy_this_slot * slot["value"],
+                            "duration_hours": slot_duration_hours,
+                            "estimated_battery_level": slot_battery_level,
+                        }
+                    )
+                    total_energy_to_discharge += energy_this_slot
 
         _LOGGER.info(
             "Selected %d discharge slots, total energy: %.2f kWh, estimated revenue: %.2f EUR%s",
             len(selected_slots),
-            total_energy_to_discharge,
+            sum(s["energy_kwh"] for s in selected_slots),
             sum(s["revenue"] for s in selected_slots),
-            " (multi-day with solar forecast)" if solar_battery_estimates else "",
+            " (with battery state projection)" if solar_forecast_data else "",
         )
 
         # Cache the result

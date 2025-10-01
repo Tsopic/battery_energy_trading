@@ -115,7 +115,7 @@ cards:
           ### 🔴 Discharge Periods (Selling to Grid)
           {% if state_attr('sensor.battery_energy_trading_discharge_time_slots', 'slots') %}
           {% for slot in state_attr('sensor.battery_energy_trading_discharge_time_slots', 'slots') %}
-          - **{{ as_timestamp(slot.start) | timestamp_custom('%H:%M', true) }} - {{ as_timestamp(slot.end) | timestamp_custom('%H:%M', true) }}** | {{ slot.energy_kwh | round(1) }} kWh @ €{{ slot.price | round(3) }}/kWh (€{{ slot.revenue | round(2) }})
+          - **{{ as_timestamp(slot.start) | timestamp_custom('%H:%M', true) }} - {{ as_timestamp(slot.end) | timestamp_custom('%H:%M', true) }}** | {{ slot.energy_kwh | round(1) }} kWh @ €{{ slot.price | round(3) }}/kWh (€{{ slot.revenue | round(2) }}){% if slot.battery_before is defined %} | 🔋 {{ slot.battery_before | round(1) }} → {{ slot.battery_after | round(1) }} kWh{% endif %}
           {% endfor %}
           {% else %}
           *No discharge periods scheduled*
@@ -207,7 +207,7 @@ cards:
           ### 🔴 Discharge Time Slots Detail
           {% if state_attr('sensor.battery_energy_trading_discharge_time_slots', 'slots') %}
           {% for slot in state_attr('sensor.battery_energy_trading_discharge_time_slots', 'slots') %}
-          - **{{ as_timestamp(slot.start) | timestamp_custom('%H:%M', true) }} - {{ as_timestamp(slot.end) | timestamp_custom('%H:%M', true) }}**: {{ slot.energy_kwh | round(1) }} kWh @ €{{ slot.price | round(3) }}/kWh → Revenue: **€{{ slot.revenue | round(2) }}**
+          - **{{ as_timestamp(slot.start) | timestamp_custom('%H:%M', true) }} - {{ as_timestamp(slot.end) | timestamp_custom('%H:%M', true) }}**: {{ slot.energy_kwh | round(1) }} kWh @ €{{ slot.price | round(3) }}/kWh → Revenue: **€{{ slot.revenue | round(2) }}**{% if slot.battery_before is defined %} | 🔋 {{ slot.battery_before | round(1) }} → {{ slot.battery_after | round(1) }} kWh{% endif %}
           {% endfor %}
           {% else %}
           *No discharge slots selected*

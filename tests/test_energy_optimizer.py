@@ -271,3 +271,140 @@ class TestEnergyOptimizer:
 
         total_energy = sum(slot["energy_kwh"] for slot in slots)
         assert total_energy <= 2.1  # Allow small rounding error
+
+    def test_battery_state_projection_without_solar(self):
+        """Test battery state projection without solar recharge."""
+        optimizer = EnergyOptimizer()
+
+        # Create test slots spanning 2 hours
+        base_time = datetime(2025, 10, 1, 8, 0)
+        test_slots = [
+            {"start": base_time, "end": base_time + timedelta(minutes=15), "value": 0.50, "price": 0.50},
+            {"start": base_time + timedelta(hours=1), "end": base_time + timedelta(hours=1, minutes=15), "value": 0.48, "price": 0.48},
+        ]
+
+        # Battery: 10 kWh capacity, 50% charged = 5 kWh available
+        # Discharge rate: 5 kW for 15-min slots = 1.25 kWh per slot
+        # Should support both slots (5 kWh > 2.5 kWh needed)
+        feasible = optimizer._project_battery_state(
+            slots=test_slots,
+            initial_battery_kwh=5.0,
+            battery_capacity_kwh=10.0,
+            discharge_rate_kw=5.0,
+            slot_duration_hours=0.25,
+            solar_forecast_data=None,
+        )
+
+        assert len(feasible) == 2
+        assert feasible[0]["battery_before"] == pytest.approx(5.0)
+        assert feasible[0]["battery_after"] == pytest.approx(3.75)
+        assert feasible[1]["battery_before"] == pytest.approx(3.75)
+        assert feasible[1]["battery_after"] == pytest.approx(2.5)
+
+    def test_battery_state_projection_with_solar(self):
+        """Test battery state projection with solar recharge between slots."""
+        optimizer = EnergyOptimizer()
+
+        # Create test slots: morning and evening
+        base_time = datetime(2025, 10, 1, 8, 0)
+        test_slots = [
+            {"start": base_time, "end": base_time + timedelta(minutes=15), "value": 0.45, "price": 0.45},
+            {"start": base_time + timedelta(hours=8), "end": base_time + timedelta(hours=8, minutes=15), "value": 0.50, "price": 0.50},
+        ]
+
+        # Solar forecast: 6 kWh generated between 9:00-15:00
+        solar_forecast = {
+            "wh_hours": {
+                (base_time + timedelta(hours=i)).isoformat(): 1000.0  # 1 kWh per hour
+                for i in range(1, 7)
+            }
+        }
+
+        # Battery: 10 kWh capacity, 40% = 4 kWh available
+        # First discharge: 1.25 kWh -> 2.75 kWh remaining
+        # Solar recharge: +6 kWh -> 8.75 kWh
+        # Second discharge: 1.25 kWh -> 7.5 kWh remaining
+        feasible = optimizer._project_battery_state(
+            slots=test_slots,
+            initial_battery_kwh=4.0,
+            battery_capacity_kwh=10.0,
+            discharge_rate_kw=5.0,
+            slot_duration_hours=0.25,
+            solar_forecast_data=solar_forecast,
+        )
+
+        assert len(feasible) == 2
+        # First slot feasible with initial battery
+        assert feasible[0]["battery_before"] == pytest.approx(4.0)
+        assert feasible[0]["battery_after"] == pytest.approx(2.75)
+        # Second slot feasible thanks to solar recharge
+        assert feasible[1]["battery_before"] == pytest.approx(8.75)
+        assert feasible[1]["battery_after"] == pytest.approx(7.5)
+
+    def test_battery_state_projection_insufficient_for_second_peak(self):
+        """Test that second peak is rejected when battery insufficient."""
+        optimizer = EnergyOptimizer()
+
+        # Create test slots
+        base_time = datetime(2025, 10, 1, 8, 0)
+        test_slots = [
+            {"start": base_time, "end": base_time + timedelta(minutes=15), "value": 0.45, "price": 0.45},
+            {"start": base_time + timedelta(hours=2), "end": base_time + timedelta(hours=2, minutes=15), "value": 0.50, "price": 0.50},
+        ]
+
+        # Small solar forecast: only 0.5 kWh generated
+        solar_forecast = {
+            "wh_hours": {
+                (base_time + timedelta(hours=1)).isoformat(): 500.0,  # 0.5 kWh
+            }
+        }
+
+        # Battery: 10 kWh capacity, 20% = 2 kWh available
+        # First discharge: 1.25 kWh -> 0.75 kWh remaining
+        # Solar recharge: +0.5 kWh -> 1.25 kWh
+        # Second discharge needs 1.25 kWh -> EXACTLY sufficient
+        feasible = optimizer._project_battery_state(
+            slots=test_slots,
+            initial_battery_kwh=2.0,
+            battery_capacity_kwh=10.0,
+            discharge_rate_kw=5.0,
+            slot_duration_hours=0.25,
+            solar_forecast_data=solar_forecast,
+        )
+
+        # Should select both slots (edge case: exactly enough)
+        assert len(feasible) == 2
+
+    def test_select_discharge_with_battery_projection(self, sample_price_data):
+        """Test discharge slot selection using battery state projection."""
+        optimizer = EnergyOptimizer()
+
+        # Create solar forecast covering the day
+        base_time = sample_price_data[0]["start"]
+        solar_forecast = {
+            "wh_hours": {
+                (base_time + timedelta(hours=i)).isoformat(): 2000.0  # 2 kWh per hour
+                for i in range(8, 18)  # Solar from 8am to 6pm
+            }
+        }
+
+        # Battery: 10 kWh capacity, 50% = 5 kWh
+        # With solar forecast, should select multiple peaks throughout the day
+        slots = optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=50.0,
+            discharge_rate=5.0,
+            max_hours=None,  # Unlimited
+            solar_forecast_data=solar_forecast,
+        )
+
+        # Should select multiple slots thanks to solar recharge
+        assert len(slots) > 2
+        # All slots should be above min price
+        assert all(slot["price"] >= 0.30 for slot in slots)
+        # Verify battery state tracking
+        for slot in slots:
+            assert "battery_before" in slot
+            assert "battery_after" in slot
