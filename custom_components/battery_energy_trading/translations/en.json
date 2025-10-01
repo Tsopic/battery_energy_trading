@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Battery Energy Trading Setup",
+        "description": "Configure your battery management and energy trading integration.",
+        "data": {
+          "nordpool_entity": "Nord Pool Price Sensor",
+          "battery_level_entity": "Battery Level Sensor (%)",
+          "battery_capacity_entity": "Battery Capacity Sensor (kWh)",
+          "solar_power_entity": "Solar Power Sensor (W) - Optional"
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entity not found. Please check the entity ID."
+    },
+    "abort": {
+      "already_configured": "This integration is already configured."
+    }
+  }
+}
