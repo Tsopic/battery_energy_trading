@@ -14,6 +14,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
     DOMAIN,
+    VERSION,
     CONF_NORDPOOL_ENTITY,
     CONF_BATTERY_LEVEL_ENTITY,
     CONF_BATTERY_CAPACITY_ENTITY,
@@ -36,6 +37,7 @@ from .const import (
     DEFAULT_FORCED_DISCHARGE_HOURS,
     DEFAULT_DISCHARGE_RATE_KW,
     DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_MIN_ARBITRAGE_PROFIT,
 )
 from .energy_optimizer import EnergyOptimizer
 
@@ -89,7 +91,7 @@ class BatteryTradingSensor(SensorEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.7.0",
+            sw_version=VERSION,
         )
 
     async def async_added_to_hass(self) -> None:
@@ -218,7 +220,7 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
             opportunities = self._optimizer.calculate_arbitrage_opportunities(
                 raw_today,
                 battery_capacity,
-                min_profit_threshold=0.50,  # Minimum 0.50 EUR profit
+                min_profit_threshold=DEFAULT_MIN_ARBITRAGE_PROFIT,
             )
 
             if opportunities:
@@ -246,7 +248,7 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
         opportunities = self._optimizer.calculate_arbitrage_opportunities(
             raw_today,
             battery_capacity,
-            min_profit_threshold=0.50,
+            min_profit_threshold=DEFAULT_MIN_ARBITRAGE_PROFIT,
         )
 
         return {

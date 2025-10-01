@@ -707,3 +707,161 @@ class TestEnergyOptimizerIntegration:
         print(f"  Total energy: {total_energy:.2f} kWh")
         print(f"  Total revenue: €{total_revenue:.2f}")
         print(f"  Average price: €{total_revenue/total_energy:.3f}/kWh")
+
+
+class TestInputValidation:
+    """Tests for input validation and error handling."""
+
+    def test_negative_battery_level_clamped(self, sample_price_data):
+        """Test that negative battery level is clamped to 0."""
+        optimizer = EnergyOptimizer()
+
+        slots = optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=-50.0,  # Invalid negative
+            discharge_rate=5.0,
+        )
+
+        # Should clamp to 0% and return no slots (no energy available)
+        assert len(slots) == 0
+
+    def test_battery_level_over_100_clamped(self, sample_price_data):
+        """Test that battery level >100% is clamped to 100%."""
+        optimizer = EnergyOptimizer()
+
+        slots = optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=150.0,  # Invalid >100%
+            discharge_rate=5.0,
+            max_hours=1.0,
+        )
+
+        # Should clamp to 100% and work normally
+        assert len(slots) > 0
+        total_energy = sum(s["energy_kwh"] for s in slots)
+        # Should not exceed battery capacity (100% of 10kWh = 10kWh)
+        assert total_energy <= 10.0
+
+    def test_negative_battery_capacity_clamped(self, sample_price_data):
+        """Test that negative capacity is clamped to 0."""
+        optimizer = EnergyOptimizer()
+
+        slots = optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=-10.0,  # Invalid negative
+            battery_level=80.0,
+            discharge_rate=5.0,
+        )
+
+        # Clamped to 0, no capacity means no slots
+        assert len(slots) == 0
+
+    def test_negative_discharge_rate_clamped(self, sample_price_data):
+        """Test that negative discharge rate is clamped to 0."""
+        optimizer = EnergyOptimizer()
+
+        slots = optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=80.0,
+            discharge_rate=-5.0,  # Invalid negative
+        )
+
+        # Clamped to 0, no discharge rate means no energy per slot
+        assert len(slots) == 0
+
+    def test_charging_with_invalid_target_level(self, sample_price_data):
+        """Test charging with target level >100% is clamped."""
+        optimizer = EnergyOptimizer()
+
+        slots = optimizer.select_charging_slots(
+            raw_prices=sample_price_data,
+            max_charge_price=0.10,
+            battery_capacity=10.0,
+            battery_level=50.0,
+            target_level=150.0,  # Invalid >100%
+            charge_rate=5.0,
+        )
+
+        # Should clamp target to 100% and calculate needed energy correctly
+        # Battery at 50%, target 100% = need 5kWh
+        total_energy = sum(s["energy_kwh"] for s in slots)
+        assert total_energy <= 5.0
+
+    def test_empty_price_data(self):
+        """Test handling of empty price data."""
+        optimizer = EnergyOptimizer()
+
+        slots = optimizer.select_discharge_slots(
+            raw_prices=[],  # Empty
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=80.0,
+            discharge_rate=5.0,
+        )
+
+        assert len(slots) == 0
+
+    def test_cache_cleanup_prevents_memory_leak(self, sample_price_data):
+        """Test that cache cleanup removes expired entries."""
+        optimizer = EnergyOptimizer()
+
+        # Make multiple calls to populate cache
+        for i in range(10):
+            optimizer.select_discharge_slots(
+                raw_prices=sample_price_data,
+                min_sell_price=0.30 + (i * 0.01),  # Vary params to create different cache keys
+                battery_capacity=10.0,
+                battery_level=80.0,
+                discharge_rate=5.0,
+            )
+
+        # Cache should have entries
+        initial_cache_size = len(optimizer._cache)
+        assert initial_cache_size > 0
+
+        # Manually trigger cleanup
+        optimizer._clean_expired_cache()
+
+        # All entries should still be valid (within TTL)
+        assert len(optimizer._cache) == initial_cache_size
+
+        # Force expiration by manipulating TTL
+        optimizer._cache_ttl = timedelta(seconds=-1)  # Everything expired
+        optimizer._clean_expired_cache()
+
+        # Cache should be empty after cleanup
+        assert len(optimizer._cache) == 0
+
+    def test_solar_forecast_with_invalid_datetime_keys(self, sample_price_data):
+        """Test handling of solar forecast with malformed datetime keys."""
+        optimizer = EnergyOptimizer()
+
+        # Solar forecast with invalid/unparseable keys
+        solar_forecast = {
+            "wh_hours": {
+                "invalid_datetime": 1000.0,
+                "2025-99-99T25:99:99": 2000.0,  # Invalid date
+                "not_a_date_at_all": 3000.0,
+            }
+        }
+
+        slots = optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=80.0,
+            discharge_rate=5.0,
+            solar_forecast_data=solar_forecast,
+            multiday_enabled=True,
+        )
+
+        # Should not crash, but may have reduced effectiveness
+        # At minimum, should not raise exceptions
+        assert isinstance(slots, list)

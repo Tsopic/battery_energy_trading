@@ -1,7 +1,15 @@
 """Constants for the Battery Energy Trading integration."""
+import json
+from pathlib import Path
 from typing import Final
 
 DOMAIN: Final = "battery_energy_trading"
+
+# Read version from manifest.json
+_manifest_path = Path(__file__).parent / "manifest.json"
+with open(_manifest_path) as f:
+    _manifest = json.load(f)
+VERSION: Final = _manifest["version"]
 
 # Configuration keys
 CONF_NORDPOOL_ENTITY: Final = "nordpool_entity"
@@ -21,6 +29,7 @@ DEFAULT_MIN_BATTERY_LEVEL: Final = 25
 DEFAULT_MIN_SOLAR_THRESHOLD: Final = 500
 DEFAULT_DISCHARGE_RATE_KW: Final = 5.0  # kW
 DEFAULT_CHARGE_RATE_KW: Final = 5.0  # kW
+DEFAULT_MIN_ARBITRAGE_PROFIT: Final = 0.50  # EUR
 
 # Sensor types
 SENSOR_ARBITRAGE_OPPORTUNITIES: Final = "arbitrage_opportunities"
