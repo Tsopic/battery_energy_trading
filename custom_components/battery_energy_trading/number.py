@@ -195,7 +195,7 @@ class BatteryTradingNumber(NumberEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.6.1",
+            sw_version="0.7.0",
         )
 
     async def async_set_native_value(self, value: float) -> None:
