@@ -27,38 +27,52 @@ SUNGROW_INVERTER_SPECS = {
 }
 
 
-# Common Sungrow entity patterns
-# Matches both sungrow-prefixed and standard battery entity names
+# Common Sungrow Modbus entity patterns
+# Based on actual Sungrow-SHx-Inverter-Modbus-Home-Assistant integration
+# Patterns are ordered by priority: exact matches first, then fuzzy matches
 SUNGROW_ENTITY_PATTERNS = {
     "battery_level": [
-        r"sensor\.battery_level$",  # Exact match for Sungrow Modbus integration
-        r"sensor\.battery_level_\(nominal\)",  # Alternative battery level sensor
-        r"sensor\..*sungrow.*battery.*level",
-        r"sensor\..*sungrow.*battery.*soc",
-        r"sensor\..*sungrow.*soc",
-        r"sensor\.sh\d+rt.*battery.*level",
-        r"sensor\.battery_soc",
+        # Exact matches from Sungrow Modbus integration (unique_id: sg_battery_level)
+        r"^sensor\.battery_level$",  # Primary: sensor.battery_level (address 13022)
+        r"^sensor\.battery_level_nominal$",  # Alternative: calculated between min/max SoC
+        # Fuzzy matches for other naming conventions
+        r"^sensor\..*sungrow.*battery.*level$",
+        r"^sensor\..*sungrow.*battery.*soc$",
+        r"^sensor\..*sungrow.*soc$",
+        r"^sensor\.sh\d+\.?rt.*battery.*level$",
+        r"^sensor\.battery_soc$",
     ],
     "battery_capacity": [
-        r"sensor\.battery_capacity$",  # Exact match for Sungrow Modbus integration
-        r"sensor\.battery_charge$",  # Alternative capacity sensor
-        r"sensor\.battery_charge_\(nominal\)",  # Nominal capacity sensor
-        r"sensor\..*sungrow.*battery.*capacity",
-        r"sensor\..*sungrow.*capacity",
+        # Exact matches from Sungrow Modbus integration (unique_id: sg_battery_capacity)
+        r"^sensor\.battery_capacity$",  # Primary: sensor.battery_capacity (address 5638)
+        r"^sensor\.battery_charge$",  # Alternative: Current charge in kWh
+        r"^sensor\.battery_charge_nominal$",  # Alternative: Nominal capacity
+        r"^sensor\.battery_charge_health_rated$",  # Alternative: Health-adjusted capacity
+        # Fuzzy matches for other naming conventions
+        r"^sensor\..*sungrow.*battery.*capacity$",
+        r"^sensor\..*sungrow.*capacity$",
+        r"^sensor\.sh\d+\.?rt.*capacity$",
     ],
     "solar_power": [
-        r"sensor\.total_dc_power$",  # Exact match for Sungrow Modbus integration
-        r"sensor\.mppt1_power$",  # MPPT1 power sensor
-        r"sensor\.mppt2_power$",  # MPPT2 power sensor
-        r"sensor\..*sungrow.*pv.*power",
-        r"sensor\..*sungrow.*total.*pv",
-        r"sensor\..*sungrow.*solar.*power",
-        r"sensor\.pv_power",
+        # Exact matches from Sungrow Modbus integration (unique_id: sg_total_dc_power)
+        r"^sensor\.total_dc_power$",  # Primary: sensor.total_dc_power (address 5016) - Total from all MPPT strings
+        # Fuzzy matches for other naming conventions
+        r"^sensor\..*sungrow.*pv.*power$",
+        r"^sensor\..*sungrow.*total.*pv$",
+        r"^sensor\..*sungrow.*solar.*power$",
+        r"^sensor\..*sungrow.*total.*dc.*power$",
+        r"^sensor\.sh\d+\.?rt.*pv.*power$",
+        r"^sensor\.pv_power$",
+        r"^sensor\.solar_power$",
     ],
     "device_type": [
-        r"sensor\.sungrow_device_type$",  # Exact match for Sungrow Modbus integration
-        r"sensor\..*sungrow.*device.*type",
-        r"sensor\..*sungrow.*model",
+        # Exact matches from Sungrow Modbus integration (unique_id: sg_sungrow_device_type)
+        r"^sensor\.sungrow_device_type$",  # Primary: sensor.sungrow_device_type (template sensor)
+        r"^sensor\.sungrow_device_type_code$",  # Alternative: Raw device type code
+        # Fuzzy matches for other naming conventions
+        r"^sensor\..*sungrow.*device.*type$",
+        r"^sensor\..*sungrow.*model$",
+        r"^sensor\.sh\d+\.?rt.*type$",
     ],
 }
 
@@ -222,8 +236,26 @@ class SungrowHelper:
         """
         Check if Sungrow integration is installed and has entities.
 
+        Checks for either:
+        - Entities with "sungrow" in the name
+        - Known Sungrow Modbus entity patterns (battery_level, battery_capacity, total_dc_power)
+
         Returns:
             True if Sungrow entities are found
         """
         all_entities = self.hass.states.async_all()
-        return any("sungrow" in entity.entity_id.lower() for entity in all_entities)
+
+        # Check for "sungrow" prefix entities (common pattern)
+        if any("sungrow" in entity.entity_id.lower() for entity in all_entities):
+            return True
+
+        # Check for exact Sungrow Modbus entity names (address-based entities)
+        sungrow_modbus_entities = {
+            "sensor.battery_level",  # sg_battery_level
+            "sensor.battery_capacity",  # sg_battery_capacity
+            "sensor.total_dc_power",  # sg_total_dc_power
+            "sensor.sungrow_device_type",  # Template sensor
+        }
+
+        entity_ids = {entity.entity_id.lower() for entity in all_entities}
+        return any(modbus_entity in entity_ids for modbus_entity in sungrow_modbus_entities)

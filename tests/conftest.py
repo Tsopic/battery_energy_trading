@@ -83,25 +83,27 @@ def sample_price_data():
 
 @pytest.fixture
 def mock_sungrow_entities():
-    """Mock Sungrow entities."""
+    """Mock Sungrow Modbus entities (matching actual integration entity names)."""
+    # Actual Sungrow Modbus entities don't have "sungrow_" prefix
+    # They are named based on their function: battery_level, battery_capacity, total_dc_power
     battery_level = MagicMock()
-    battery_level.entity_id = "sensor.sungrow_battery_level"
+    battery_level.entity_id = "sensor.battery_level"  # sg_battery_level (address 13022)
     battery_level.state = "75"
     battery_level.attributes = {}
 
     battery_capacity = MagicMock()
-    battery_capacity.entity_id = "sensor.sungrow_battery_capacity"
+    battery_capacity.entity_id = "sensor.battery_capacity"  # sg_battery_capacity (address 5638)
     battery_capacity.state = "12.8"
-    battery_capacity.attributes = {"model": "SBR128"}
+    battery_capacity.attributes = {}
 
-    pv_power = MagicMock()
-    pv_power.entity_id = "sensor.sungrow_pv_power"
-    pv_power.state = "2500"
-    pv_power.attributes = {}
+    solar_power = MagicMock()
+    solar_power.entity_id = "sensor.total_dc_power"  # sg_total_dc_power (address 5016)
+    solar_power.state = "2500"
+    solar_power.attributes = {}
 
     device_type = MagicMock()
-    device_type.entity_id = "sensor.sungrow_device_type_code"
+    device_type.entity_id = "sensor.sungrow_device_type"  # Template sensor based on device_type_code
     device_type.state = "SH10RT"
     device_type.attributes = {}
 
-    return [battery_level, battery_capacity, pv_power, device_type]
+    return [battery_level, battery_capacity, solar_power, device_type]
