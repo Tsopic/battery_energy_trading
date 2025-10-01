@@ -474,11 +474,21 @@ No matching solar forecast entries found - check datetime format compatibility
 
 ### Automated Testing
 
-All new tests added to `tests/test_energy_optimizer.py`:
+**Unit Tests** (`tests/test_energy_optimizer.py`):
 - Battery projection without solar ✅
 - Battery projection with solar ✅
 - Insufficient battery rejection ✅
 - Integration with real price data ✅
+
+**Integration Tests** (Added October 1, 2025):
+- Realistic Nord Pool price pattern (Estonian morning + evening peaks) ✅
+- Solar forecast datetime format compatibility ✅
+- Backward compatibility without solar forecast ✅
+- Insufficient battery rejection (20% initial, requires 2 peaks) ✅
+- Max hours limit with battery projection ✅
+- Complete realistic winter scenario (Estonian winter pattern) ✅
+
+**Test Coverage**: 24 tests passing (18 unit + 6 integration)
 
 ---
 
