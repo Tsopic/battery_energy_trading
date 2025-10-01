@@ -42,7 +42,9 @@ cards:
         name: "Battery Capacity Entity"
         icon: mdi:battery-high
 
-  # Nord Pool Price Chart - Today vs Tomorrow with Discharge/Charge Overlays (Auto-configured)
+  # Nord Pool Price Chart - Today vs Tomorrow with Discharge/Charge Overlays
+  # NOTE: Replace 'sensor.nordpool_kwh_se3_eur_3_10_025' with your actual Nord Pool entity ID
+  # You can find it in the Integration Configuration card above
   - type: custom:apexcharts-card
     experimental:
       color_threshold: true
@@ -54,8 +56,7 @@ cards:
       start: day
       offset: +1d
     series:
-      - entity: >
-          {{ state_attr('sensor.battery_energy_trading_configuration', 'nordpool_entity') }}
+      - entity: sensor.nordpool_kwh_se3_eur_3_10_025  # REPLACE WITH YOUR NORD POOL ENTITY
         name: Tomorrow
         type: column
         color: '#03a9f4'
@@ -63,8 +64,7 @@ cards:
           return entity.attributes.raw_tomorrow.map((start, index) => {
             return [new Date(start["start"]).getTime(), entity.attributes.raw_tomorrow[index]["value"] * 1000];
           });
-      - entity: >
-          {{ state_attr('sensor.battery_energy_trading_configuration', 'nordpool_entity') }}
+      - entity: sensor.nordpool_kwh_se3_eur_3_10_025  # REPLACE WITH YOUR NORD POOL ENTITY
         name: Today
         offset: '-1d'
         type: column
@@ -82,7 +82,10 @@ cards:
         offset: '-1d'
         data_generator: |
           const slots = entity.attributes.slots || [];
-          const nordpool = hass.states[states['sensor.battery_energy_trading_configuration'].attributes.nordpool_entity];
+          const config = hass.states['sensor.battery_energy_trading_configuration'];
+          if (!config) return [];
+          const nordpoolEntityId = config.attributes.nordpool_entity;
+          const nordpool = hass.states[nordpoolEntityId];
           if (!nordpool || !nordpool.attributes.raw_today) return [];
 
           const prices = nordpool.attributes.raw_today;
@@ -104,7 +107,10 @@ cards:
         offset: '-1d'
         data_generator: |
           const slots = entity.attributes.slots || [];
-          const nordpool = hass.states[states['sensor.battery_energy_trading_configuration'].attributes.nordpool_entity];
+          const config = hass.states['sensor.battery_energy_trading_configuration'];
+          if (!config) return [];
+          const nordpoolEntityId = config.attributes.nordpool_entity;
+          const nordpool = hass.states[nordpoolEntityId];
           if (!nordpool || !nordpool.attributes.raw_today) return [];
 
           const prices = nordpool.attributes.raw_today;
