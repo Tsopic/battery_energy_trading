@@ -16,6 +16,7 @@ from .const import (
     SWITCH_ENABLE_FORCED_CHARGING,
     SWITCH_ENABLE_FORCED_DISCHARGE,
     SWITCH_ENABLE_EXPORT_MANAGEMENT,
+    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,6 +53,14 @@ async def async_setup_entry(
             "Manage grid export based on price thresholds",
             True,  # Default: enabled
         ),
+        BatteryTradingSwitch(
+            entry,
+            SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
+            "Enable Multi-Day Optimization",
+            "mdi:calendar-multiple",
+            "Optimize across today + tomorrow using price forecasts and solar estimates",
+            True,  # Default: enabled - maximizes revenue potential
+        ),
     ]
 
     async_add_entities(switches)
@@ -83,7 +92,7 @@ class BatteryTradingSwitch(SwitchEntity, RestoreEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.6.1",
+            sw_version="0.7.0",
         )
 
     async def async_added_to_hass(self) -> None:

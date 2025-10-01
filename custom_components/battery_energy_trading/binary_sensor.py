@@ -17,6 +17,7 @@ from .const import (
     CONF_BATTERY_LEVEL_ENTITY,
     CONF_BATTERY_CAPACITY_ENTITY,
     CONF_SOLAR_POWER_ENTITY,
+    CONF_SOLAR_FORECAST_ENTITY,
     BINARY_SENSOR_FORCED_DISCHARGE,
     BINARY_SENSOR_LOW_PRICE,
     BINARY_SENSOR_EXPORT_PROFITABLE,
@@ -35,6 +36,7 @@ from .const import (
     SWITCH_ENABLE_FORCED_CHARGING,
     SWITCH_ENABLE_FORCED_DISCHARGE,
     SWITCH_ENABLE_EXPORT_MANAGEMENT,
+    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
     DEFAULT_MIN_EXPORT_PRICE,
     DEFAULT_MIN_FORCED_SELL_PRICE,
     DEFAULT_MAX_FORCE_CHARGE_PRICE,
@@ -60,16 +62,18 @@ async def async_setup_entry(
     battery_level_entity = entry.data[CONF_BATTERY_LEVEL_ENTITY]
     battery_capacity_entity = entry.data[CONF_BATTERY_CAPACITY_ENTITY]
     solar_power_entity = entry.data.get(CONF_SOLAR_POWER_ENTITY)
+    solar_forecast_entity = entry.data.get(CONF_SOLAR_FORECAST_ENTITY)
 
     optimizer = EnergyOptimizer()
 
     sensors = [
         ForcedDischargeSensor(
-            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_power_entity, optimizer
+            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity,
+            solar_power_entity, solar_forecast_entity, optimizer
         ),
         LowPriceSensor(hass, entry, nordpool_entity),
         ExportProfitableSensor(hass, entry, nordpool_entity),
-        CheapestHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, optimizer),
+        CheapestHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
         BatteryLowSensor(hass, entry, battery_level_entity),
     ]
 
@@ -101,7 +105,7 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.6.1",
+            sw_version="0.7.0",
         )
 
     async def async_added_to_hass(self) -> None:
@@ -159,18 +163,22 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         battery_level_entity: str,
         battery_capacity_entity: str,
         solar_power_entity: str | None,
+        solar_forecast_entity: str | None,
         optimizer: EnergyOptimizer,
     ) -> None:
         """Initialize the forced discharge sensor."""
         tracked = [nordpool_entity, battery_level_entity, battery_capacity_entity]
         if solar_power_entity:
             tracked.append(solar_power_entity)
+        if solar_forecast_entity:
+            tracked.append(solar_forecast_entity)
 
         super().__init__(hass, entry, BINARY_SENSOR_FORCED_DISCHARGE, tracked)
         self._nordpool_entity = nordpool_entity
         self._battery_level_entity = battery_level_entity
         self._battery_capacity_entity = battery_capacity_entity
         self._solar_power_entity = solar_power_entity
+        self._solar_forecast_entity = solar_forecast_entity
         self._optimizer = optimizer
         self._attr_name = "Forced Discharge Active"
         self._attr_device_class = "power"
@@ -212,10 +220,21 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
             if not raw_today:
                 return False
 
+            # Get tomorrow's prices and multi-day optimization setting
+            raw_tomorrow = nordpool_state.attributes.get("raw_tomorrow")
+            multiday_enabled = self._get_switch_state(SWITCH_ENABLE_MULTIDAY_OPTIMIZATION)
+
+            # Get solar forecast data if available
+            solar_forecast_data = None
+            if self._solar_forecast_entity and multiday_enabled:
+                solar_forecast_state = self.hass.states.get(self._solar_forecast_entity)
+                if solar_forecast_state:
+                    solar_forecast_data = solar_forecast_state.attributes
+
             # 0 = unlimited (use battery capacity limit only)
             max_hours = None if forced_discharge_hours == 0 else forced_discharge_hours
 
-            # Get discharge slots using shared optimizer
+            # Get discharge slots using shared optimizer with multi-day support
             discharge_slots = self._optimizer.select_discharge_slots(
                 raw_today,
                 min_sell_price,
@@ -223,6 +242,9 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
                 battery_level,
                 discharge_rate=discharge_rate,
                 max_hours=max_hours,
+                raw_tomorrow=raw_tomorrow,
+                solar_forecast_data=solar_forecast_data,
+                multiday_enabled=multiday_enabled,
             )
 
             # Check if we're currently in a discharge slot
@@ -230,7 +252,6 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         except Exception as err:
             _LOGGER.error("Error checking forced discharge state: %s", err, exc_info=True)
             return False
-
 
 class LowPriceSensor(BatteryTradingBinarySensor):
     """Binary sensor for low price detection."""
@@ -290,13 +311,18 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
+        solar_forecast_entity: str | None,
         optimizer: EnergyOptimizer,
     ) -> None:
         """Initialize the cheapest hours sensor."""
-        super().__init__(hass, entry, BINARY_SENSOR_CHEAPEST_HOURS, [nordpool_entity, battery_level_entity, battery_capacity_entity])
+        tracked = [nordpool_entity, battery_level_entity, battery_capacity_entity]
+        if solar_forecast_entity:
+            tracked.append(solar_forecast_entity)
+        super().__init__(hass, entry, BINARY_SENSOR_CHEAPEST_HOURS, tracked)
         self._nordpool_entity = nordpool_entity
         self._battery_level_entity = battery_level_entity
         self._battery_capacity_entity = battery_capacity_entity
+        self._solar_forecast_entity = solar_forecast_entity
         self._optimizer = optimizer
         self._attr_name = "Cheapest Hours Active"
         self._attr_icon = "mdi:clock-check"
@@ -316,6 +342,17 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
         if not raw_today:
             return False
 
+        # Get tomorrow's prices and multi-day optimization setting
+        raw_tomorrow = nordpool_state.attributes.get("raw_tomorrow")
+        multiday_enabled = self._get_switch_state(SWITCH_ENABLE_MULTIDAY_OPTIMIZATION)
+
+        # Get solar forecast data if available
+        solar_forecast_data = None
+        if self._solar_forecast_entity and multiday_enabled:
+            solar_forecast_state = self.hass.states.get(self._solar_forecast_entity)
+            if solar_forecast_state:
+                solar_forecast_data = solar_forecast_state.attributes
+
         # Get configuration values from number entities
         battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
         battery_level = self._get_float_state(self._battery_level_entity, 0.0)
@@ -323,7 +360,7 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
         target_level = self._get_number_entity_value(NUMBER_FORCE_CHARGE_TARGET, DEFAULT_FORCE_CHARGE_TARGET)
         charge_rate = self._get_number_entity_value(NUMBER_CHARGE_RATE_KW, DEFAULT_CHARGE_RATE_KW)
 
-        # Get charging slots from optimizer
+        # Get charging slots from optimizer with multi-day support
         charging_slots = self._optimizer.select_charging_slots(
             raw_today,
             max_charge_price,
@@ -331,6 +368,9 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
             battery_level,
             target_level,
             charge_rate=charge_rate,
+            raw_tomorrow=raw_tomorrow,
+            solar_forecast_data=solar_forecast_data,
+            multiday_enabled=multiday_enabled,
         )
 
         # Check if we're currently in a charging slot

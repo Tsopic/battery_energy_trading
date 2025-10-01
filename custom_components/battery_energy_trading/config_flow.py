@@ -17,6 +17,7 @@ from .const import (
     CONF_BATTERY_LEVEL_ENTITY,
     CONF_BATTERY_CAPACITY_ENTITY,
     CONF_SOLAR_POWER_ENTITY,
+    CONF_SOLAR_FORECAST_ENTITY,
     DEFAULT_CHARGE_RATE_KW,
     DEFAULT_DISCHARGE_RATE_KW,
 )
@@ -36,6 +37,9 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
             selector.EntitySelectorConfig(domain="sensor")
         ),
         vol.Optional(CONF_SOLAR_POWER_ENTITY): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        ),
+        vol.Optional(CONF_SOLAR_FORECAST_ENTITY): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="sensor")
         ),
     }

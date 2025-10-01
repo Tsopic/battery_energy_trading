@@ -8,6 +8,7 @@ CONF_NORDPOOL_ENTITY: Final = "nordpool_entity"
 CONF_BATTERY_LEVEL_ENTITY: Final = "battery_level_entity"
 CONF_BATTERY_CAPACITY_ENTITY: Final = "battery_capacity_entity"
 CONF_SOLAR_POWER_ENTITY: Final = "solar_power_entity"
+CONF_SOLAR_FORECAST_ENTITY: Final = "solar_forecast_entity"
 
 # Default values
 DEFAULT_MIN_EXPORT_PRICE: Final = 0.0125
@@ -55,3 +56,4 @@ NUMBER_CHARGE_RATE_KW: Final = "charge_rate_kw"
 SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"
 SWITCH_ENABLE_FORCED_DISCHARGE: Final = "enable_forced_discharge"
 SWITCH_ENABLE_EXPORT_MANAGEMENT: Final = "enable_export_management"
+SWITCH_ENABLE_MULTIDAY_OPTIMIZATION: Final = "enable_multiday_optimization"
