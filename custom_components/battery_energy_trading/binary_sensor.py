@@ -58,7 +58,7 @@ async def async_setup_entry(
 
     sensors = [
         ForcedDischargeSensor(
-            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_power_entity, optimizer
+            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_power_entity
         ),
         LowPriceSensor(hass, entry, nordpool_entity),
         ExportProfitableSensor(hass, entry, nordpool_entity),
