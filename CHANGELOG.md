@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] - 2025-10-01
+
+### Fixed
+- **Critical**: Dashboard Jinja2 template removal - replaced all Jinja2 entity ID templates with manual configuration
+- Fixed ApexCharts Nord Pool entity references (2 locations)
+- Fixed Current Status card Nord Pool entity reference (1 location)
+- Added clear setup instructions in dashboard header
+
+### Changed
+- Dashboard now requires manual Nord Pool entity ID replacement in 3 locations
+- Updated dashboard header with detailed setup guide
+- Dashboard version updated to 0.10.1+
+
+### Documentation
+- Clear comments mark all locations requiring Nord Pool entity ID replacement
+- Integration Configuration card displays user's Nord Pool entity ID for easy copying
+
 ## [0.11.0] - 2025-10-01
 
 ### Changes
