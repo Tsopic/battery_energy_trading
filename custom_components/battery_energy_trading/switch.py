@@ -83,7 +83,7 @@ class BatteryTradingSwitch(SwitchEntity, RestoreEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.5.4",
+            sw_version="0.6.1",
         )
 
     async def async_added_to_hass(self) -> None:
