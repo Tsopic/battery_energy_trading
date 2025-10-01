@@ -118,100 +118,261 @@ In the integration:
 2. Set **Battery Discharge Rate** to your inverter's max (e.g., 5.0 kW)
 3. Set **Battery Charge Rate** to your inverter's max (e.g., 5.0 kW)
 
-## 🔄 Automation Examples
+## 🔄 Sungrow Power Control Entities
 
-### Control Sungrow Charging Based on Price
+The Sungrow Modbus integration provides these control entities:
 
-```yaml
-automation:
-  - alias: "Sungrow: Enable Charging at Cheap Prices"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.battery_energy_trading_cheapest_hours
-        to: 'on'
-    condition:
-      - condition: state
-        entity_id: switch.battery_energy_trading_enable_forced_charging
-        state: 'on'
-    action:
-      - service: switch.turn_on
-        target:
-          entity_id: switch.sungrow_charge_battery_from_grid
+| Entity | Description | Values |
+|--------|-------------|--------|
+| `select.sungrow_ems_mode` | Operating mode | Self-consumption, Forced Mode, etc. |
+| `number.sungrow_forced_charging_power` | Force charge power | 0-10000 W |
+| `number.sungrow_forced_discharging_power` | Force discharge power | 0-10000 W |
+| `number.sungrow_max_soc` | Maximum battery SOC | 0-100% |
+| `number.sungrow_min_soc` | Minimum battery SOC | 0-100% |
 
-  - alias: "Sungrow: Disable Charging After Cheap Period"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.battery_energy_trading_cheapest_hours
-        to: 'off'
-    action:
-      - service: switch.turn_off
-        target:
-          entity_id: switch.sungrow_charge_battery_from_grid
-```
+## 🔄 Complete Automation Examples
 
-### Force Discharge at Peak Prices
+### 1. Smart Discharge Control (Recommended)
+
+This automation directly controls Sungrow's discharge power based on price slots:
 
 ```yaml
 automation:
-  - alias: "Sungrow: Force Discharge at Peak Prices"
+  - alias: "Battery Trading: Control Sungrow Discharge Power"
+    description: "Set discharge power during peak price periods"
     trigger:
       - platform: state
         entity_id: binary_sensor.battery_energy_trading_forced_discharge
-        to: 'on'
-    condition:
-      - condition: state
+      - platform: state
         entity_id: switch.battery_energy_trading_enable_forced_discharge
-        state: 'on'
     action:
-      - service: number.set_value
-        target:
-          entity_id: number.sungrow_battery_forced_charge_discharge_power
-        data:
-          value: -5000  # Negative = discharge (W)
+      - choose:
+          # Discharge enabled and in high-price slot
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.battery_energy_trading_forced_discharge
+                state: 'on'
+              - condition: state
+                entity_id: switch.battery_energy_trading_enable_forced_discharge
+                state: 'on'
+            sequence:
+              # Set EMS to Forced Mode
+              - service: select.select_option
+                target:
+                  entity_id: select.sungrow_ems_mode
+                data:
+                  option: "Forced Mode"
 
-  - alias: "Sungrow: Stop Force Discharge"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.battery_energy_trading_forced_discharge
-        to: 'off'
-    action:
-      - service: number.set_value
-        target:
-          entity_id: number.sungrow_battery_forced_charge_discharge_power
-        data:
-          value: 0  # Return to self-consumption
+              # Set discharge power (use your battery's max discharge rate)
+              - service: number.set_value
+                target:
+                  entity_id: number.sungrow_forced_discharging_power
+                data:
+                  value: >
+                    {{ states('number.battery_energy_trading_discharge_rate_kw') | float(5.0) * 1000 }}
+
+              # Ensure charging is off
+              - service: number.set_value
+                target:
+                  entity_id: number.sungrow_forced_charging_power
+                data:
+                  value: 0
+
+              - service: notify.notify
+                data:
+                  title: "⚡ Peak Price Discharge"
+                  message: >
+                    Discharging battery at {{ states('number.sungrow_forced_discharging_power') }}W.
+                    Price: {{ states('sensor.nordpool') }} EUR/kWh
+
+        # Return to self-consumption mode
+        default:
+          - service: select.select_option
+            target:
+              entity_id: select.sungrow_ems_mode
+            data:
+              option: "Self-consumption"
+
+          - service: number.set_value
+            target:
+              entity_id: number.sungrow_forced_discharging_power
+            data:
+              value: 0
+
+          - service: number.set_value
+            target:
+              entity_id: number.sungrow_forced_charging_power
+            data:
+              value: 0
 ```
 
-### Manage Export Limits
+### 2. Smart Charging Control
+
+Control charging during cheap price periods:
 
 ```yaml
 automation:
-  - alias: "Sungrow: Control Export Based on Price"
+  - alias: "Battery Trading: Control Sungrow Charging Power"
+    description: "Charge battery during cheapest periods"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.battery_energy_trading_cheapest_hours
+      - platform: state
+        entity_id: switch.battery_energy_trading_enable_forced_charging
+    action:
+      - choose:
+          # Charging enabled and in cheap price slot
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.battery_energy_trading_cheapest_hours
+                state: 'on'
+              - condition: state
+                entity_id: switch.battery_energy_trading_enable_forced_charging
+                state: 'on'
+              - condition: numeric_state
+                entity_id: sensor.sungrow_battery_level
+                below: input_number.battery_energy_trading_force_charge_target
+            sequence:
+              # Set EMS to Forced Mode
+              - service: select.select_option
+                target:
+                  entity_id: select.sungrow_ems_mode
+                data:
+                  option: "Forced Mode"
+
+              # Set charging power
+              - service: number.set_value
+                target:
+                  entity_id: number.sungrow_forced_charging_power
+                data:
+                  value: >
+                    {{ states('number.battery_energy_trading_charge_rate_kw') | float(5.0) * 1000 }}
+
+              # Ensure discharging is off
+              - service: number.set_value
+                target:
+                  entity_id: number.sungrow_forced_discharging_power
+                data:
+                  value: 0
+
+              - service: notify.notify
+                data:
+                  title: "⚡ Cheap Price Charging"
+                  message: >
+                    Charging battery at {{ states('number.sungrow_forced_charging_power') }}W.
+                    Price: {{ states('sensor.nordpool') }} EUR/kWh
+
+        # Return to self-consumption
+        default:
+          - service: select.select_option
+            target:
+              entity_id: select.sungrow_ems_mode
+            data:
+              option: "Self-consumption"
+
+          - service: number.set_value
+            target:
+              entity_id: number.sungrow_forced_charging_power
+            data:
+              value: 0
+```
+
+### 3. Battery Protection Limits
+
+Sync battery protection settings:
+
+```yaml
+automation:
+  - alias: "Battery Trading: Sync Battery SOC Limits"
+    description: "Update Sungrow min/max SOC based on battery trading settings"
+    trigger:
+      - platform: state
+        entity_id: number.battery_energy_trading_min_battery_level
+      - platform: state
+        entity_id: number.battery_energy_trading_force_charge_target
+    action:
+      - service: number.set_value
+        target:
+          entity_id: number.sungrow_min_soc
+        data:
+          value: "{{ states('number.battery_energy_trading_min_battery_level') }}"
+
+      - service: number.set_value
+        target:
+          entity_id: number.sungrow_max_soc
+        data:
+          value: "{{ states('number.battery_energy_trading_force_charge_target') }}"
+```
+
+### 4. Export Power Management
+
+Control export based on profitability:
+
+```yaml
+automation:
+  - alias: "Battery Trading: Manage Sungrow Export Limit"
+    description: "Control grid export based on price profitability"
     trigger:
       - platform: state
         entity_id: binary_sensor.battery_energy_trading_export_profitable
+      - platform: state
+        entity_id: switch.battery_energy_trading_enable_export_management
     action:
       - choose:
+          # Export profitable and enabled
           - conditions:
               - condition: state
                 entity_id: binary_sensor.battery_energy_trading_export_profitable
+                state: 'on'
+              - condition: state
+                entity_id: switch.battery_energy_trading_enable_export_management
                 state: 'on'
             sequence:
               - service: number.set_value
                 target:
                   entity_id: number.sungrow_export_power_limit
                 data:
-                  value: 10000  # Allow full export
-          - conditions:
-              - condition: state
-                entity_id: binary_sensor.battery_energy_trading_export_profitable
-                state: 'off'
-            sequence:
-              - service: number.set_value
-                target:
-                  entity_id: number.sungrow_export_power_limit
-                data:
-                  value: 0  # Block export
+                  value: 10000  # Allow full export (adjust to your needs)
+
+        # Block or limit export
+        default:
+          - service: number.set_value
+            target:
+              entity_id: number.sungrow_export_power_limit
+            data:
+              value: 0  # Block export when unprofitable
+```
+
+### 5. Emergency Battery Protection
+
+Stop discharge if battery gets too low:
+
+```yaml
+automation:
+  - alias: "Battery Trading: Emergency Stop on Low Battery"
+    description: "Force stop discharge if battery drops below 15%"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.battery_energy_trading_battery_low
+        to: 'on'
+    action:
+      # Return to self-consumption immediately
+      - service: select.select_option
+        target:
+          entity_id: select.sungrow_ems_mode
+        data:
+          option: "Self-consumption"
+
+      - service: number.set_value
+        target:
+          entity_id: number.sungrow_forced_discharging_power
+        data:
+          value: 0
+
+      - service: notify.notify
+        data:
+          title: "🔋 Battery Protection"
+          message: "Discharge stopped - Battery below 15%"
 ```
 
 ## 📊 Dashboard Integration
