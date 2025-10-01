@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2025-10-01
+
+### Changes
+
+- chore: bump version to 0.4.1
+- ci: ignore brands validation check in HACS action
+- fix: update config_flow.py to use _KW suffix constants
+- feat: add Nord Pool price chart to dashboard
+
+
 ## [0.4.0] - 2025-10-01
 
 ### Changes
