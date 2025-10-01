@@ -43,3 +43,8 @@ NUMBER_FORCE_CHARGING_HOURS: Final = "force_charging_hours"
 NUMBER_FORCE_CHARGE_TARGET: Final = "force_charge_target"
 NUMBER_MIN_BATTERY_LEVEL: Final = "min_battery_level"
 NUMBER_MIN_SOLAR_THRESHOLD: Final = "min_solar_threshold"
+
+# Switch types
+SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"
+SWITCH_ENABLE_FORCED_DISCHARGE: Final = "enable_forced_discharge"
+SWITCH_ENABLE_EXPORT_MANAGEMENT: Final = "enable_export_management"

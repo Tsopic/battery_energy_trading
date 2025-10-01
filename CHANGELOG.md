@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-01-10
+
+### Added
+- **Intelligent 15-minute slot selection** for discharge and charging
+- **Battery capacity-aware scheduling** - respects available energy
+- **Energy optimizer** - calculates optimal slots based on battery state
+- **Automation switches** for toggling features:
+  - Enable Forced Charging (default: OFF for solar-only)
+  - Enable Forced Discharge (default: ON)
+  - Enable Export Management (default: ON)
+- **Solar-first operation mode** - designed for selling excess solar
+- **Detailed slot information** in sensor attributes (time, energy, price, revenue)
+- **Real-time discharge/charge detection** - binary sensors check if currently in active slot
+
+### Changed
+- **Default behavior**: Discharge enabled, charging disabled (solar-first mode)
+- Sensors now show detailed 15-min slot information with energy amounts
+- Binary sensors respect switch states for automation control
+- Improved arbitrage detection with battery capacity consideration
+
+### Fixed
+- Slot selection now properly handles both 15-min and hourly periods
+- Battery capacity calculations prevent over-scheduling
+
 ## [0.1.0] - 2025-01-10
 
 ### Added

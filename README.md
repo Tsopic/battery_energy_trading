@@ -10,19 +10,25 @@ A comprehensive Home Assistant integration for intelligent battery management an
 ### Smart Energy Trading
 - **Arbitrage Detection** - Automatically identifies profitable buy-low, sell-high opportunities
 - **Dynamic Pricing** - Integrates with Nord Pool (or any price sensor) for real-time price tracking
+- **15-Minute Slot Support** - Works with modern 15-minute energy markets
 - **Profit Optimization** - Calculates optimal charging and discharging schedules
 
 ### Intelligent Battery Management
-- **Force Charging** - Automatically charges during cheapest hours
-- **Force Discharging** - Sells energy during highest-price hours
+- **Optional Force Charging** - Toggle automatic charging during cheap hours (disabled by default for solar-only setups)
+- **Smart Discharging** - Sells excess solar/battery during highest-price 15-min slots (enabled by default)
 - **Battery Protection** - Respects minimum battery levels
-- **Solar Override** - Allows discharge even at low battery when solar is available
+- **Solar Override** - Allows discharge even at low battery when solar is generating
+
+### Solar-First Operation
+- **Designed for Solar Users** - Default settings prioritize selling excess solar, not grid charging
+- **Peak Price Selling** - Automatically exports during high-price periods
+- **Flexible Modes** - Toggle charging/discharging independently via switches
 
 ### Safety & Control
 - **Minimum Battery Levels** - Prevents over-discharge
 - **Price Thresholds** - Won't sell at a loss
-- **Export Limiting** - Prevents export during unprofitable periods
-- **Manual Overrides** - Full control when needed
+- **Export Management** - Smart grid export based on profitability
+- **Automation-Friendly Switches** - Full control via Home Assistant automations
 
 ## 📊 What Problems Does This Solve?
 
@@ -86,23 +92,36 @@ After setup, configure the following parameters via the dashboard:
 
 The integration provides the following entities for your dashboard:
 
-### Sensors
-- **Arbitrage Opportunities** - Shows profitable charge/discharge windows
-- **Selected Discharge Hours** - Hours when battery will discharge
-- **Selected Charging Hours** - Hours when battery will charge
-- **Profitable Sell Hours** - Best hours to sell energy
-- **Economical Charge Hours** - Best hours to buy energy
+### Switches (Primary Controls)
+- **Enable Forced Charging** - Toggle automatic grid charging (default: OFF)
+- **Enable Forced Discharge** - Toggle peak-time selling (default: ON)
+- **Enable Export Management** - Toggle smart export control (default: ON)
 
-### Binary Sensors
-- **Forced Discharge Active** - Currently in forced discharge mode
+### Sensors (with 15-min slot details)
+- **Discharge Time Slots** - Selected 15-min slots with energy amounts and prices
+  - Shows: `17:00-17:15 (1.2kWh @€0.452), 18:00-18:15 (1.2kWh @€0.428)`
+  - Attributes: `slot_count`, `total_energy_kwh`, `estimated_revenue_eur`, detailed `slots` array
+- **Charging Time Slots** - Cheapest 15-min slots for charging (if enabled)
+  - Shows energy amounts, prices, and estimated costs
+- **Arbitrage Opportunities** - Profitable charge/discharge windows with profit calculations
+
+### Binary Sensors (Automation Triggers)
+- **Forced Discharge Active** - Currently selling at peak prices
+- **Cheapest Hours Active** - Currently in cheap charging period (only if charging enabled)
 - **Low Price Mode** - Price below export threshold
 - **Export Profitable** - Exporting would be profitable
-- **Cheapest Hours Active** - In cheapest charging hours
 - **Battery Below 15%** - Low battery warning
-- **Solar Power Available** - Sufficient solar production
+- **Solar Power Available** - Sufficient solar production (>500W)
 
-### Controls (Number Inputs)
-All configuration parameters are exposed as number entities for easy adjustment and automation.
+### Configuration (Number Inputs)
+- **Forced Discharge Hours** - How many slots to sell (0-8, default: 2)
+- **Minimum Export Price** - Minimum to allow export (default: €0.0125)
+- **Minimum Forced Sell Price** - Minimum for discharge (default: €0.30)
+- **Maximum Force Charge Price** - Maximum for charging (default: €0.00)
+- **Force Charging Hours** - How many slots to charge (0-24, default: 1)
+- **Force Charge Target** - Target battery % (0-100%, default: 70%)
+- **Minimum Battery Level** - Min % for discharge (10-50%, default: 25%)
+- **Minimum Solar Threshold** - Solar power override (0-5000W, default: 500W)
 
 ## 🔧 Integration with Existing Systems
 
@@ -113,9 +132,47 @@ This integration is designed to work with:
 - **Solar Inverters** - Any system providing power production data
 - **Home Assistant Automations** - Full automation support
 
-### Example Automation
+### Example Automations
 
-You can create automations that respond to the binary sensors:
+**Solar-Only Mode (Default):**
+Sell excess solar at peak prices, never charge from grid:
+
+```yaml
+# Forced Charging is OFF by default
+# Forced Discharge is ON by default
+# Just let the integration manage discharge automatically
+```
+
+**Enable Grid Charging During Cheap Hours:**
+
+```yaml
+automation:
+  - alias: "Enable Charging in Winter"
+    trigger:
+      - platform: template
+        value_template: "{{ now().month in [11, 12, 1, 2] }}"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.battery_energy_trading_enable_forced_charging
+```
+
+**Disable Discharge on Cloudy Days:**
+
+```yaml
+automation:
+  - alias: "Disable Discharge When Cloudy"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.solar_forecast_today
+        below: 10  # kWh
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.battery_energy_trading_enable_forced_discharge
+```
+
+**Notification When Selling:**
 
 ```yaml
 automation:

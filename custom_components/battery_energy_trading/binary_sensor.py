@@ -28,6 +28,9 @@ from .const import (
     NUMBER_MIN_BATTERY_LEVEL,
     NUMBER_MIN_SOLAR_THRESHOLD,
     NUMBER_FORCE_CHARGE_TARGET,
+    SWITCH_ENABLE_FORCED_CHARGING,
+    SWITCH_ENABLE_FORCED_DISCHARGE,
+    SWITCH_ENABLE_EXPORT_MANAGEMENT,
     DEFAULT_MIN_EXPORT_PRICE,
     DEFAULT_MIN_FORCED_SELL_PRICE,
     DEFAULT_MAX_FORCE_CHARGE_PRICE,
@@ -131,9 +134,14 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
     @property
     def is_on(self) -> bool:
         """Return true if forced discharge should be active."""
+        # Check if forced discharge is enabled
+        if not self._get_switch_state(SWITCH_ENABLE_FORCED_DISCHARGE):
+            return False
+
         # Get configuration values from number entities
         min_battery_level = DEFAULT_MIN_BATTERY_LEVEL
         min_solar_threshold = DEFAULT_MIN_SOLAR_THRESHOLD
+        min_sell_price = DEFAULT_MIN_FORCED_SELL_PRICE
 
         # Get entity states
         battery_capacity = self._get_float_state(self._battery_capacity_entity, 0)
@@ -141,13 +149,14 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         solar_power = self._get_float_state(self._solar_power_entity, 0) if self._solar_power_entity else 0
 
         # Check basic conditions
-        if battery_capacity <= 35:
+        if battery_capacity <= 0:
             return False
 
+        # Allow discharge if battery is above minimum OR solar is generating
         if battery_level <= min_battery_level and solar_power < min_solar_threshold:
             return False
 
-        # Check if current hour is in high-price hours
+        # Check if current time is in high-price discharge slots
         nordpool_state = self.hass.states.get(self._nordpool_entity)
         if not nordpool_state:
             return False
@@ -156,12 +165,20 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         if not raw_today:
             return False
 
-        current_time = datetime.now()
-        current_hour = current_time.hour
+        # Get discharge slots from optimizer
+        from .energy_optimizer import EnergyOptimizer
+        optimizer = EnergyOptimizer()
 
-        # Implementation would check if current hour is in selected discharge hours
-        # For now, return False
-        return False
+        discharge_slots = optimizer.select_discharge_slots(
+            raw_today,
+            min_sell_price,
+            battery_capacity,
+            battery_level,
+            discharge_rate=5.0,
+        )
+
+        # Check if we're currently in a discharge slot
+        return optimizer.is_current_slot_selected(discharge_slots)
 
     def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
         """Get float value from entity state."""
@@ -176,6 +193,15 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
             return float(state.state)
         except (ValueError, TypeError):
             return default
+
+    def _get_switch_state(self, switch_type: str) -> bool:
+        """Get switch state."""
+        entity_id = f"switch.{DOMAIN}_{self._entry.entry_id}_{switch_type}"
+        state = self.hass.states.get(entity_id)
+        if not state:
+            return True  # Default to enabled if switch not found
+
+        return state.state == "on"
 
 
 class LowPriceSensor(BatteryTradingBinarySensor):
@@ -229,17 +255,56 @@ class ExportProfitableSensor(BatteryTradingBinarySensor):
 class CheapestHoursSensor(BatteryTradingBinarySensor):
     """Binary sensor for cheapest hours detection."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, nordpool_entity: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        nordpool_entity: str,
+        battery_level_entity: str,
+        battery_capacity_entity: str,
+        optimizer: EnergyOptimizer,
+    ) -> None:
         """Initialize the cheapest hours sensor."""
-        super().__init__(hass, entry, BINARY_SENSOR_CHEAPEST_HOURS, [nordpool_entity])
+        super().__init__(hass, entry, BINARY_SENSOR_CHEAPEST_HOURS, [nordpool_entity, battery_level_entity, battery_capacity_entity])
         self._nordpool_entity = nordpool_entity
+        self._battery_level_entity = battery_level_entity
+        self._battery_capacity_entity = battery_capacity_entity
+        self._optimizer = optimizer
         self._attr_name = "Cheapest Hours Active"
         self._attr_icon = "mdi:clock-check"
 
     @property
     def is_on(self) -> bool:
-        """Return true if current hour is in cheapest hours."""
-        return False  # Implementation pending
+        """Return true if current time is in cheapest charging hours."""
+        # Check if forced charging is enabled
+        if not self._get_switch_state(SWITCH_ENABLE_FORCED_CHARGING):
+            return False
+
+        nordpool_state = self.hass.states.get(self._nordpool_entity)
+        if not nordpool_state:
+            return False
+
+        raw_today = nordpool_state.attributes.get("raw_today", [])
+        if not raw_today:
+            return False
+
+        battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+        battery_level = self._get_float_state(self._battery_level_entity, 0.0)
+        max_charge_price = DEFAULT_MAX_FORCE_CHARGE_PRICE
+        target_level = DEFAULT_FORCE_CHARGE_TARGET
+
+        # Get charging slots from optimizer
+        charging_slots = self._optimizer.select_charging_slots(
+            raw_today,
+            max_charge_price,
+            battery_capacity,
+            battery_level,
+            target_level,
+            charge_rate=5.0,
+        )
+
+        # Check if we're currently in a charging slot
+        return self._optimizer.is_current_slot_selected(charging_slots)
 
 
 class BatteryLowSensor(BatteryTradingBinarySensor):
