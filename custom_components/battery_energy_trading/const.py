@@ -18,8 +18,8 @@ DEFAULT_FORCE_CHARGING_HOURS: Final = 1
 DEFAULT_FORCE_CHARGE_TARGET: Final = 70
 DEFAULT_MIN_BATTERY_LEVEL: Final = 25
 DEFAULT_MIN_SOLAR_THRESHOLD: Final = 500
-DEFAULT_DISCHARGE_RATE: Final = 5.0  # kW
-DEFAULT_CHARGE_RATE: Final = 5.0  # kW
+DEFAULT_DISCHARGE_RATE_KW: Final = 5.0  # kW
+DEFAULT_CHARGE_RATE_KW: Final = 5.0  # kW
 
 # Sensor types
 SENSOR_ARBITRAGE_OPPORTUNITIES: Final = "arbitrage_opportunities"
@@ -48,8 +48,8 @@ NUMBER_FORCE_CHARGING_HOURS: Final = "force_charging_hours"
 NUMBER_FORCE_CHARGE_TARGET: Final = "force_charge_target"
 NUMBER_MIN_BATTERY_LEVEL: Final = "min_battery_level"
 NUMBER_MIN_SOLAR_THRESHOLD: Final = "min_solar_threshold"
-NUMBER_DISCHARGE_RATE: Final = "discharge_rate_kw"
-NUMBER_CHARGE_RATE: Final = "charge_rate_kw"
+NUMBER_DISCHARGE_RATE_KW: Final = "discharge_rate_kw"
+NUMBER_CHARGE_RATE_KW: Final = "charge_rate_kw"
 
 # Switch types
 SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"

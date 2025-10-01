@@ -18,8 +18,8 @@ from .const import (
     NUMBER_FORCE_CHARGE_TARGET,
     NUMBER_MIN_BATTERY_LEVEL,
     NUMBER_MIN_SOLAR_THRESHOLD,
-    NUMBER_DISCHARGE_RATE,
-    NUMBER_CHARGE_RATE,
+    NUMBER_DISCHARGE_RATE_KW,
+    NUMBER_CHARGE_RATE_KW,
     DEFAULT_MIN_EXPORT_PRICE,
     DEFAULT_MIN_FORCED_SELL_PRICE,
     DEFAULT_MAX_FORCE_CHARGE_PRICE,
@@ -28,8 +28,8 @@ from .const import (
     DEFAULT_FORCE_CHARGE_TARGET,
     DEFAULT_MIN_BATTERY_LEVEL,
     DEFAULT_MIN_SOLAR_THRESHOLD,
-    DEFAULT_DISCHARGE_RATE,
-    DEFAULT_CHARGE_RATE,
+    DEFAULT_DISCHARGE_RATE_KW,
+    DEFAULT_CHARGE_RATE_KW,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,8 +43,8 @@ async def async_setup_entry(
     """Set up Battery Energy Trading number entities."""
     # Get auto-detected rates from options if available
     options = entry.options or {}
-    discharge_rate_default = options.get("discharge_rate", DEFAULT_DISCHARGE_RATE)
-    charge_rate_default = options.get("charge_rate", DEFAULT_CHARGE_RATE)
+    discharge_rate_default = options.get("discharge_rate", DEFAULT_DISCHARGE_RATE_KW)
+    charge_rate_default = options.get("charge_rate", DEFAULT_CHARGE_RATE_KW)
 
     numbers = [
         BatteryTradingNumber(
@@ -137,7 +137,7 @@ async def async_setup_entry(
         ),
         BatteryTradingNumber(
             entry,
-            NUMBER_DISCHARGE_RATE,
+            NUMBER_DISCHARGE_RATE_KW,
             "Battery Discharge Rate",
             1.0,
             20.0,
@@ -148,7 +148,7 @@ async def async_setup_entry(
         ),
         BatteryTradingNumber(
             entry,
-            NUMBER_CHARGE_RATE,
+            NUMBER_CHARGE_RATE_KW,
             "Battery Charge Rate",
             1.0,
             20.0,
