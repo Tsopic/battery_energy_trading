@@ -29,6 +29,9 @@ from .const import (
     NUMBER_MIN_BATTERY_LEVEL,
     NUMBER_MIN_SOLAR_THRESHOLD,
     NUMBER_FORCE_CHARGE_TARGET,
+    NUMBER_FORCED_DISCHARGE_HOURS,
+    NUMBER_DISCHARGE_RATE_KW,
+    NUMBER_CHARGE_RATE_KW,
     SWITCH_ENABLE_FORCED_CHARGING,
     SWITCH_ENABLE_FORCED_DISCHARGE,
     SWITCH_ENABLE_EXPORT_MANAGEMENT,
@@ -38,6 +41,9 @@ from .const import (
     DEFAULT_MIN_BATTERY_LEVEL,
     DEFAULT_MIN_SOLAR_THRESHOLD,
     DEFAULT_FORCE_CHARGE_TARGET,
+    DEFAULT_FORCED_DISCHARGE_HOURS,
+    DEFAULT_DISCHARGE_RATE_KW,
+    DEFAULT_CHARGE_RATE_KW,
 )
 from .energy_optimizer import EnergyOptimizer
 
@@ -59,7 +65,7 @@ async def async_setup_entry(
 
     sensors = [
         ForcedDischargeSensor(
-            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_power_entity
+            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_power_entity, optimizer
         ),
         LowPriceSensor(hass, entry, nordpool_entity),
         ExportProfitableSensor(hass, entry, nordpool_entity),
@@ -95,7 +101,7 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.5.3",
+            sw_version="0.5.4",
         )
 
     async def async_added_to_hass(self) -> None:
@@ -136,6 +142,11 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
 
         return state.state == "on"
 
+    def _get_number_entity_value(self, number_type: str, default: float) -> float:
+        """Get value from number entity."""
+        entity_id = f"number.{DOMAIN}_{self._entry.entry_id}_{number_type}"
+        return self._get_float_state(entity_id, default)
+
 
 class ForcedDischargeSensor(BatteryTradingBinarySensor):
     """Binary sensor for forced discharge timer."""
@@ -148,6 +159,7 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         battery_level_entity: str,
         battery_capacity_entity: str,
         solar_power_entity: str | None,
+        optimizer: EnergyOptimizer,
     ) -> None:
         """Initialize the forced discharge sensor."""
         tracked = [nordpool_entity, battery_level_entity, battery_capacity_entity]
@@ -159,6 +171,7 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         self._battery_level_entity = battery_level_entity
         self._battery_capacity_entity = battery_capacity_entity
         self._solar_power_entity = solar_power_entity
+        self._optimizer = optimizer
         self._attr_name = "Forced Discharge Active"
         self._attr_device_class = "power"
 
@@ -170,9 +183,11 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
             return False
 
         # Get configuration values from number entities
-        min_battery_level = DEFAULT_MIN_BATTERY_LEVEL
-        min_solar_threshold = DEFAULT_MIN_SOLAR_THRESHOLD
-        min_sell_price = DEFAULT_MIN_FORCED_SELL_PRICE
+        min_battery_level = self._get_number_entity_value(NUMBER_MIN_BATTERY_LEVEL, DEFAULT_MIN_BATTERY_LEVEL)
+        min_solar_threshold = self._get_number_entity_value(NUMBER_MIN_SOLAR_THRESHOLD, DEFAULT_MIN_SOLAR_THRESHOLD)
+        min_sell_price = self._get_number_entity_value(NUMBER_MIN_FORCED_SELL_PRICE, DEFAULT_MIN_FORCED_SELL_PRICE)
+        discharge_rate = self._get_number_entity_value(NUMBER_DISCHARGE_RATE_KW, DEFAULT_DISCHARGE_RATE_KW)
+        forced_discharge_hours = self._get_number_entity_value(NUMBER_FORCED_DISCHARGE_HOURS, DEFAULT_FORCED_DISCHARGE_HOURS)
 
         # Get entity states
         battery_capacity = self._get_float_state(self._battery_capacity_entity, 0)
@@ -196,20 +211,21 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         if not raw_today:
             return False
 
-        # Get discharge slots from optimizer
-        from .energy_optimizer import EnergyOptimizer
-        optimizer = EnergyOptimizer()
+        # 0 = unlimited (use battery capacity limit only)
+        max_hours = None if forced_discharge_hours == 0 else forced_discharge_hours
 
-        discharge_slots = optimizer.select_discharge_slots(
+        # Get discharge slots using shared optimizer
+        discharge_slots = self._optimizer.select_discharge_slots(
             raw_today,
             min_sell_price,
             battery_capacity,
             battery_level,
-            discharge_rate=5.0,
+            discharge_rate=discharge_rate,
+            max_hours=max_hours,
         )
 
         # Check if we're currently in a discharge slot
-        return optimizer.is_current_slot_selected(discharge_slots)
+        return self._optimizer.is_current_slot_selected(discharge_slots)
 
 
 class LowPriceSensor(BatteryTradingBinarySensor):
@@ -296,10 +312,12 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
         if not raw_today:
             return False
 
+        # Get configuration values from number entities
         battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
         battery_level = self._get_float_state(self._battery_level_entity, 0.0)
-        max_charge_price = DEFAULT_MAX_FORCE_CHARGE_PRICE
-        target_level = DEFAULT_FORCE_CHARGE_TARGET
+        max_charge_price = self._get_number_entity_value(NUMBER_MAX_FORCE_CHARGE_PRICE, DEFAULT_MAX_FORCE_CHARGE_PRICE)
+        target_level = self._get_number_entity_value(NUMBER_FORCE_CHARGE_TARGET, DEFAULT_FORCE_CHARGE_TARGET)
+        charge_rate = self._get_number_entity_value(NUMBER_CHARGE_RATE_KW, DEFAULT_CHARGE_RATE_KW)
 
         # Get charging slots from optimizer
         charging_slots = self._optimizer.select_charging_slots(
@@ -308,7 +326,7 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
             battery_capacity,
             battery_level,
             target_level,
-            charge_rate=5.0,
+            charge_rate=charge_rate,
         )
 
         # Check if we're currently in a charging slot

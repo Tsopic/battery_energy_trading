@@ -33,7 +33,7 @@ class BatteryTradingBaseEntity(Entity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.5.3",
+            sw_version="0.5.4",
         )
 
     def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
