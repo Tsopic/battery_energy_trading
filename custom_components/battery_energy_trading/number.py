@@ -200,5 +200,19 @@ class BatteryTradingNumber(NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
+        # Validate value is within bounds
+        if value < self._attr_native_min_value or value > self._attr_native_max_value:
+            _LOGGER.warning(
+                "Value %.2f for %s is out of bounds (%.2f - %.2f), clamping",
+                value, self._attr_name, self._attr_native_min_value, self._attr_native_max_value
+            )
+            value = max(self._attr_native_min_value, min(value, self._attr_native_max_value))
+
+        # Additional validation for specific entities
+        if "rate" in self._number_type.lower() and value <= 0:
+            _LOGGER.error("Charge/discharge rate must be > 0, got %.2f", value)
+            return
+
         self._attr_native_value = value
         self.async_write_ha_state()
+        _LOGGER.debug("Updated %s to %.2f", self._attr_name, value)

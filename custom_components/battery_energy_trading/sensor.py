@@ -155,27 +155,31 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
     @property
     def state(self) -> str:
         """Return the state of the sensor."""
-        nordpool_state = self.hass.states.get(self._nordpool_entity)
-        if not nordpool_state:
-            return "No data available"
+        try:
+            nordpool_state = self.hass.states.get(self._nordpool_entity)
+            if not nordpool_state:
+                return "No data available"
 
-        raw_today = nordpool_state.attributes.get("raw_today", [])
-        if not raw_today or len(raw_today) < 3:
-            return "Insufficient data"
+            raw_today = nordpool_state.attributes.get("raw_today", [])
+            if not raw_today or len(raw_today) < 3:
+                return "Insufficient data"
 
-        battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+            battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
 
-        opportunities = self._optimizer.calculate_arbitrage_opportunities(
-            raw_today,
-            battery_capacity,
-            min_profit_threshold=0.50,  # Minimum 0.50 EUR profit
-        )
+            opportunities = self._optimizer.calculate_arbitrage_opportunities(
+                raw_today,
+                battery_capacity,
+                min_profit_threshold=0.50,  # Minimum 0.50 EUR profit
+            )
 
-        if opportunities:
-            best = opportunities[0]
-            return f"Charge {best['charge_start'].strftime('%H:%M')}-{best['charge_end'].strftime('%H:%M')}, Discharge {best['discharge_start'].strftime('%H:%M')} (Profit: €{best['profit']:.2f})"
+            if opportunities:
+                best = opportunities[0]
+                return f"Charge {best['charge_start'].strftime('%H:%M')}-{best['charge_end'].strftime('%H:%M')}, Discharge {best['discharge_start'].strftime('%H:%M')} (Profit: €{best['profit']:.2f})"
 
-        return "No profitable opportunities found"
+            return "No profitable opportunities found"
+        except Exception as err:
+            _LOGGER.error("Error calculating arbitrage opportunities: %s", err, exc_info=True)
+            return "Error calculating"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

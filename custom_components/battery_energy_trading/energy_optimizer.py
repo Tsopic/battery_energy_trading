@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 import logging
+import hashlib
+import json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -14,6 +16,36 @@ class EnergyOptimizer:
     def __init__(self) -> None:
         """Initialize the optimizer."""
         self._battery_discharge_rate = 5.0  # kW default discharge rate
+        self._cache: dict[str, tuple[datetime, Any]] = {}  # Cache with timestamp
+        self._cache_ttl = timedelta(minutes=5)  # Cache for 5 minutes
+
+    def _get_cache_key(self, method_name: str, *args, **kwargs) -> str:
+        """Generate cache key from method name and arguments."""
+        # Create a stable hash of arguments
+        cache_data = {
+            "method": method_name,
+            "args": str(args),
+            "kwargs": {k: v for k, v in kwargs.items() if not isinstance(v, (datetime, list))},
+        }
+        cache_str = json.dumps(cache_data, sort_keys=True)
+        return hashlib.md5(cache_str.encode()).hexdigest()
+
+    def _get_cached(self, cache_key: str) -> Any | None:
+        """Get cached result if still valid."""
+        if cache_key in self._cache:
+            cached_time, cached_result = self._cache[cache_key]
+            if datetime.now() - cached_time < self._cache_ttl:
+                _LOGGER.debug("Cache hit for key %s", cache_key[:8])
+                return cached_result
+            else:
+                _LOGGER.debug("Cache expired for key %s", cache_key[:8])
+                del self._cache[cache_key]
+        return None
+
+    def _set_cached(self, cache_key: str, result: Any) -> None:
+        """Store result in cache."""
+        self._cache[cache_key] = (datetime.now(), result)
+        _LOGGER.debug("Cached result for key %s (cache size: %d)", cache_key[:8], len(self._cache))
 
     @staticmethod
     def _merge_price_data(
@@ -164,6 +196,20 @@ class EnergyOptimizer:
         Returns:
             List of selected discharge slots with calculated energy amounts
         """
+        _LOGGER.debug(
+            "Selecting discharge slots: min_price=%.3f EUR/kWh, capacity=%.1f kWh, level=%.1f%%, rate=%.1f kW, max_hours=%s",
+            min_sell_price, battery_capacity, battery_level, discharge_rate, max_hours
+        )
+
+        # Check cache
+        cache_key = self._get_cache_key(
+            "select_discharge_slots",
+            len(raw_prices), min_sell_price, battery_capacity, battery_level, discharge_rate, max_hours
+        )
+        cached_result = self._get_cached(cache_key)
+        if cached_result is not None:
+            return cached_result
+
         if not raw_prices:
             _LOGGER.warning("No price data available for discharge slot selection")
             return []
@@ -273,6 +319,9 @@ class EnergyOptimizer:
             " (multi-day with solar forecast)" if solar_battery_estimates else "",
         )
 
+        # Cache the result
+        self._set_cached(cache_key, selected_slots)
+
         return selected_slots
 
     def select_charging_slots(
@@ -306,6 +355,15 @@ class EnergyOptimizer:
         Returns:
             List of selected charging slots with calculated energy amounts
         """
+        # Check cache
+        cache_key = self._get_cache_key(
+            "select_charging_slots",
+            len(raw_prices), max_charge_price, battery_capacity, battery_level, target_level, charge_rate, max_slots
+        )
+        cached_result = self._get_cached(cache_key)
+        if cached_result is not None:
+            return cached_result
+
         if not raw_prices:
             _LOGGER.warning("No price data available for charging slot selection")
             return []
@@ -406,6 +464,9 @@ class EnergyOptimizer:
             sum(s["cost"] for s in selected_slots),
             " (multi-day with solar forecast)" if solar_battery_estimates else "",
         )
+
+        # Cache the result
+        self._set_cached(cache_key, selected_slots)
 
         return selected_slots
 

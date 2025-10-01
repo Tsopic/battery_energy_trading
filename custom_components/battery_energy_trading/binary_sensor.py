@@ -186,69 +186,72 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
     @property
     def is_on(self) -> bool:
         """Return true if forced discharge should be active."""
-        # Check if forced discharge is enabled
-        if not self._get_switch_state(SWITCH_ENABLE_FORCED_DISCHARGE):
+        try:
+            # Check if forced discharge is enabled
+            if not self._get_switch_state(SWITCH_ENABLE_FORCED_DISCHARGE):
+                return False
+
+            # Get configuration values from number entities
+            min_battery_level = self._get_number_entity_value(NUMBER_MIN_BATTERY_LEVEL, DEFAULT_MIN_BATTERY_LEVEL)
+            min_solar_threshold = self._get_number_entity_value(NUMBER_MIN_SOLAR_THRESHOLD, DEFAULT_MIN_SOLAR_THRESHOLD)
+            min_sell_price = self._get_number_entity_value(NUMBER_MIN_FORCED_SELL_PRICE, DEFAULT_MIN_FORCED_SELL_PRICE)
+            discharge_rate = self._get_number_entity_value(NUMBER_DISCHARGE_RATE_KW, DEFAULT_DISCHARGE_RATE_KW)
+            forced_discharge_hours = self._get_number_entity_value(NUMBER_FORCED_DISCHARGE_HOURS, DEFAULT_FORCED_DISCHARGE_HOURS)
+
+            # Get entity states
+            battery_capacity = self._get_float_state(self._battery_capacity_entity, 0)
+            battery_level = self._get_float_state(self._battery_level_entity, 0)
+            solar_power = self._get_float_state(self._solar_power_entity, 0) if self._solar_power_entity else 0
+
+            # Check basic conditions
+            if battery_capacity <= 0:
+                return False
+
+            # Allow discharge if battery is above minimum OR solar is generating
+            if battery_level <= min_battery_level and solar_power < min_solar_threshold:
+                return False
+
+            # Check if current time is in high-price discharge slots
+            nordpool_state = self.hass.states.get(self._nordpool_entity)
+            if not nordpool_state:
+                return False
+
+            raw_today = nordpool_state.attributes.get("raw_today", [])
+            if not raw_today:
+                return False
+
+            # Get tomorrow's prices and multi-day optimization setting
+            raw_tomorrow = nordpool_state.attributes.get("raw_tomorrow")
+            multiday_enabled = self._get_switch_state(SWITCH_ENABLE_MULTIDAY_OPTIMIZATION)
+
+            # Get solar forecast data if available
+            solar_forecast_data = None
+            if self._solar_forecast_entity and multiday_enabled:
+                solar_forecast_state = self.hass.states.get(self._solar_forecast_entity)
+                if solar_forecast_state:
+                    solar_forecast_data = solar_forecast_state.attributes
+
+            # 0 = unlimited (use battery capacity limit only)
+            max_hours = None if forced_discharge_hours == 0 else forced_discharge_hours
+
+            # Get discharge slots using shared optimizer with multi-day support
+            discharge_slots = self._optimizer.select_discharge_slots(
+                raw_today,
+                min_sell_price,
+                battery_capacity,
+                battery_level,
+                discharge_rate=discharge_rate,
+                max_hours=max_hours,
+                raw_tomorrow=raw_tomorrow,
+                solar_forecast_data=solar_forecast_data,
+                multiday_enabled=multiday_enabled,
+            )
+
+            # Check if we're currently in a discharge slot
+            return self._optimizer.is_current_slot_selected(discharge_slots)
+        except Exception as err:
+            _LOGGER.error("Error checking forced discharge state: %s", err, exc_info=True)
             return False
-
-        # Get configuration values from number entities
-        min_battery_level = self._get_number_entity_value(NUMBER_MIN_BATTERY_LEVEL, DEFAULT_MIN_BATTERY_LEVEL)
-        min_solar_threshold = self._get_number_entity_value(NUMBER_MIN_SOLAR_THRESHOLD, DEFAULT_MIN_SOLAR_THRESHOLD)
-        min_sell_price = self._get_number_entity_value(NUMBER_MIN_FORCED_SELL_PRICE, DEFAULT_MIN_FORCED_SELL_PRICE)
-        discharge_rate = self._get_number_entity_value(NUMBER_DISCHARGE_RATE_KW, DEFAULT_DISCHARGE_RATE_KW)
-        forced_discharge_hours = self._get_number_entity_value(NUMBER_FORCED_DISCHARGE_HOURS, DEFAULT_FORCED_DISCHARGE_HOURS)
-
-        # Get entity states
-        battery_capacity = self._get_float_state(self._battery_capacity_entity, 0)
-        battery_level = self._get_float_state(self._battery_level_entity, 0)
-        solar_power = self._get_float_state(self._solar_power_entity, 0) if self._solar_power_entity else 0
-
-        # Check basic conditions
-        if battery_capacity <= 0:
-            return False
-
-        # Allow discharge if battery is above minimum OR solar is generating
-        if battery_level <= min_battery_level and solar_power < min_solar_threshold:
-            return False
-
-        # Check if current time is in high-price discharge slots
-        nordpool_state = self.hass.states.get(self._nordpool_entity)
-        if not nordpool_state:
-            return False
-
-        raw_today = nordpool_state.attributes.get("raw_today", [])
-        if not raw_today:
-            return False
-
-        # Get tomorrow's prices and multi-day optimization setting
-        raw_tomorrow = nordpool_state.attributes.get("raw_tomorrow")
-        multiday_enabled = self._get_switch_state(SWITCH_ENABLE_MULTIDAY_OPTIMIZATION)
-
-        # Get solar forecast data if available
-        solar_forecast_data = None
-        if self._solar_forecast_entity and multiday_enabled:
-            solar_forecast_state = self.hass.states.get(self._solar_forecast_entity)
-            if solar_forecast_state:
-                solar_forecast_data = solar_forecast_state.attributes
-
-        # 0 = unlimited (use battery capacity limit only)
-        max_hours = None if forced_discharge_hours == 0 else forced_discharge_hours
-
-        # Get discharge slots using shared optimizer with multi-day support
-        discharge_slots = self._optimizer.select_discharge_slots(
-            raw_today,
-            min_sell_price,
-            battery_capacity,
-            battery_level,
-            discharge_rate=discharge_rate,
-            max_hours=max_hours,
-            raw_tomorrow=raw_tomorrow,
-            solar_forecast_data=solar_forecast_data,
-            multiday_enabled=multiday_enabled,
-        )
-
-        # Check if we're currently in a discharge slot
-        return self._optimizer.is_current_slot_selected(discharge_slots)
-
 
 class LowPriceSensor(BatteryTradingBinarySensor):
     """Binary sensor for low price detection."""

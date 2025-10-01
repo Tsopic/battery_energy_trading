@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2025-10-01
+
+### Changes
+
+- feat: major performance and reliability improvements
+
+
 ## [0.6.1] - 2025-10-01
 
 ### Changes
