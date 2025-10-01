@@ -9,10 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Critical**: Entity naming - simplified binary sensor names to match expected entity_id format
 - **Critical**: Version sync completion - added VERSION import to switch.py, number.py, base_entity.py
 
+### Added
+- **Dashboard Enhancement**: Nord Pool price chart now overlays discharge/charge time slots with color-coded highlights
+  - Red shaded areas show selected discharge slots (high price periods)
+  - Green shaded areas show selected charging slots (low price periods)
+  - Provides visual confirmation of optimization strategy at a glance
+
 ### Changed
 - All entities now use `suggested_object_id` pattern: `{domain}_{entity_type}`
 - Binary sensor names simplified (e.g., "Forced Discharge Active" → "Forced Discharge")
 - Entity IDs are now consistent across installations: `sensor.battery_energy_trading_configuration`
+- Dashboard price chart title updated to reflect overlay functionality
 
 ## [0.10.0] - 2025-10-01
 
