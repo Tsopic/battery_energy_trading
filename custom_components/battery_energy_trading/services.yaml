@@ -1,0 +1,17 @@
+# Services for Battery Energy Trading
+
+create_dashboard:
+  name: Create Dashboard
+  description: Automatically creates a pre-configured dashboard for Battery Energy Trading
+  fields:
+    dashboard_title:
+      name: Dashboard Title
+      description: Title for the dashboard
+      default: "Battery Energy Trading"
+      example: "Energy Management"
+      selector:
+        text:
+
+reload_configuration:
+  name: Reload Configuration
+  description: Reloads the integration configuration and recalculates all schedules

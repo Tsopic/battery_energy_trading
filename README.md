@@ -75,7 +75,7 @@ A comprehensive Home Assistant integration for intelligent battery management an
 
 ### Configuration Parameters
 
-After setup, configure the following parameters via the dashboard:
+After setup, configure the following parameters via the dashboard or pre-built dashboard:
 
 | Parameter | Description | Default | Range |
 |-----------|-------------|---------|-------|
@@ -87,6 +87,8 @@ After setup, configure the following parameters via the dashboard:
 | Force Charge Target | Target battery % for force charging | 70% | 0-100% |
 | Minimum Battery Level | Minimum battery % for discharge | 25% | 10-50% |
 | Minimum Solar Threshold | Solar power to override battery limits | 500 W | 0-5000 W |
+| Battery Discharge Rate | Max discharge power | 5 kW | 1-20 kW |
+| Battery Charge Rate | Max charge power | 5 kW | 1-20 kW |
 
 ## 📱 Dashboard
 
@@ -128,9 +130,21 @@ The integration provides the following entities for your dashboard:
 This integration is designed to work with:
 
 - **Nord Pool Integration** - Or any electricity price sensor
-- **Battery Systems** - SolarEdge, Huawei, Tesla, etc.
+- **Battery Systems** - SolarEdge, Huawei, Tesla, Sungrow, etc.
 - **Solar Inverters** - Any system providing power production data
 - **Home Assistant Automations** - Full automation support
+
+### 🌟 Sungrow Inverter Integration
+
+**Pre-configured for [Sungrow SHx Modbus Integration](https://github.com/mkaiser/Sungrow-SHx-Inverter-Modbus-Home-Assistant/)!**
+
+Quick setup guide:
+1. Install Sungrow Modbus integration
+2. Map entities: `sensor.sungrow_battery_level` → Battery Level
+3. Set discharge/charge rates for your model (SH5.0RT = 5kW, SH10RT = 10kW)
+4. Enable automations in `SUNGROW_INTEGRATION.md`
+
+**[📖 Full Sungrow Integration Guide](SUNGROW_INTEGRATION.md)** - Complete setup with automation examples
 
 ### Example Automations
 
@@ -188,17 +202,49 @@ automation:
           message: "High price period - selling energy now!"
 ```
 
-## 🎨 Example Dashboard Card
+## 🎨 Pre-Built Dashboard
+
+A **complete dashboard** is included in the `dashboards/` directory!
+
+### Quick Setup
+
+1. Go to **Settings** → **Dashboards**
+2. Click **+ ADD DASHBOARD**
+3. Choose **New dashboard from scratch**
+4. Click **✏️ Edit** → **⋮** → **Raw configuration editor**
+5. Copy contents from `dashboards/battery_energy_trading_dashboard.yaml`
+6. Paste and **SAVE**
+
+### Dashboard Features
+
+The pre-built dashboard includes:
+
+📊 **11 Organized Sections:**
+- Current operation status
+- Operation mode controls (switches)
+- Discharge schedule with revenue estimates
+- Charging schedule with cost estimates
+- Arbitrage opportunities
+- Price threshold configuration
+- Battery protection settings
+- Charging configuration
+- Solar override settings
+- Discharge configuration
+- Battery health monitoring
+
+**See [`dashboards/README.md`](dashboards/README.md) for full documentation and customization guide.**
+
+### Preview
 
 ```yaml
+# Quick preview card
 type: entities
 title: Battery Energy Trading
 entities:
-  - entity: sensor.battery_energy_trading_arbitrage_opportunities
+  - entity: sensor.battery_energy_trading_discharge_time_slots
   - entity: binary_sensor.battery_energy_trading_forced_discharge
-  - entity: binary_sensor.battery_energy_trading_export_profitable
+  - entity: switch.battery_energy_trading_enable_forced_discharge
   - entity: number.battery_energy_trading_min_forced_sell_price
-  - entity: number.battery_energy_trading_forced_discharge_hours
 ```
 
 ## 📈 How It Works
