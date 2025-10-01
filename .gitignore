@@ -78,6 +78,9 @@ RUN_TESTS.md
 .pytest_cache/
 htmlcov/
 
+# Temporary documentation
+HACS_SETUP.md
+
 # Claude Code
 .claude/
 logs/
