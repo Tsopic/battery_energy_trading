@@ -14,6 +14,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
     DOMAIN,
+    VERSION,
     CONF_NORDPOOL_ENTITY,
     CONF_BATTERY_LEVEL_ENTITY,
     CONF_BATTERY_CAPACITY_ENTITY,
@@ -36,6 +37,7 @@ from .const import (
     DEFAULT_FORCED_DISCHARGE_HOURS,
     DEFAULT_DISCHARGE_RATE_KW,
     DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_MIN_ARBITRAGE_PROFIT,
 )
 from .energy_optimizer import EnergyOptimizer
 
@@ -56,6 +58,7 @@ async def async_setup_entry(
     optimizer = EnergyOptimizer()
 
     sensors = [
+        ConfigurationSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity),
         ArbitrageOpportunitiesSensor(hass, entry, nordpool_entity, battery_capacity_entity, optimizer),
         DischargeHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
         ChargingHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
@@ -88,7 +91,7 @@ class BatteryTradingSensor(SensorEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.7.0",
+            sw_version=VERSION,
         )
 
     async def async_added_to_hass(self) -> None:
@@ -134,6 +137,54 @@ class BatteryTradingSensor(SensorEntity):
         return state.state == "on"
 
 
+class ConfigurationSensor(BatteryTradingSensor):
+    """Sensor exposing integration configuration for dashboard use."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        nordpool_entity: str,
+        battery_level_entity: str,
+        battery_capacity_entity: str,
+        solar_forecast_entity: str | None,
+    ) -> None:
+        """Initialize the configuration sensor."""
+        # Use a minimal sensor type name for cleaner entity ID
+        super().__init__(hass, entry, nordpool_entity, "configuration", [])
+        self._nordpool_entity = nordpool_entity
+        self._battery_level_entity = battery_level_entity
+        self._battery_capacity_entity = battery_capacity_entity
+        self._solar_forecast_entity = solar_forecast_entity
+        self._attr_name = "Configuration"
+        self._attr_icon = "mdi:cog"
+        self._attr_entity_category = "diagnostic"  # Mark as diagnostic entity
+
+    @property
+    def state(self) -> str:
+        """Return the state of the sensor."""
+        return "Configured"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return configuration as attributes."""
+        attrs = {
+            "nordpool_entity": self._nordpool_entity,
+            "battery_level_entity": self._battery_level_entity,
+            "battery_capacity_entity": self._battery_capacity_entity,
+        }
+
+        if self._solar_forecast_entity:
+            attrs["solar_forecast_entity"] = self._solar_forecast_entity
+
+        # Get solar power entity from config if available
+        solar_power_entity = self._entry.data.get(CONF_SOLAR_POWER_ENTITY)
+        if solar_power_entity:
+            attrs["solar_power_entity"] = solar_power_entity
+
+        return attrs
+
+
 class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
     """Sensor for detecting arbitrage opportunities."""
 
@@ -169,7 +220,7 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
             opportunities = self._optimizer.calculate_arbitrage_opportunities(
                 raw_today,
                 battery_capacity,
-                min_profit_threshold=0.50,  # Minimum 0.50 EUR profit
+                min_profit_threshold=DEFAULT_MIN_ARBITRAGE_PROFIT,
             )
 
             if opportunities:
@@ -197,7 +248,7 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
         opportunities = self._optimizer.calculate_arbitrage_opportunities(
             raw_today,
             battery_capacity,
-            min_profit_threshold=0.50,
+            min_profit_threshold=DEFAULT_MIN_ARBITRAGE_PROFIT,
         )
 
         return {

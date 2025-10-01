@@ -17,6 +17,9 @@ _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "battery_energy_trading"
 
+# This integration is configured via config entries only (UI-based setup)
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 PLATFORMS = [
     Platform.SENSOR,
     Platform.BINARY_SENSOR,

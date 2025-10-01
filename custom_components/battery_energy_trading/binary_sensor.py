@@ -13,6 +13,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
     DOMAIN,
+    VERSION,
     CONF_NORDPOOL_ENTITY,
     CONF_BATTERY_LEVEL_ENTITY,
     CONF_BATTERY_CAPACITY_ENTITY,
@@ -105,7 +106,7 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.7.0",
+            sw_version=VERSION,
         )
 
     async def async_added_to_hass(self) -> None:

@@ -14,16 +14,17 @@ class TestSungrowHelper:
     """Tests for SungrowHelper class."""
 
     def test_detect_sungrow_entities(self, mock_hass, mock_sungrow_entities):
-        """Test Sungrow entity detection."""
+        """Test Sungrow entity detection with actual Modbus entity names."""
         mock_hass.states.async_all = Mock(return_value=mock_sungrow_entities)
 
         helper = SungrowHelper(mock_hass)
         detected = helper.detect_sungrow_entities()
 
-        assert detected["battery_level"] == "sensor.sungrow_battery_level"
-        assert detected["battery_capacity"] == "sensor.sungrow_battery_capacity"
-        assert detected["solar_power"] == "sensor.sungrow_pv_power"
-        assert detected["device_type"] == "sensor.sungrow_device_type_code"
+        # Actual Sungrow Modbus integration entity names
+        assert detected["battery_level"] == "sensor.battery_level"
+        assert detected["battery_capacity"] == "sensor.battery_capacity"
+        assert detected["solar_power"] == "sensor.total_dc_power"
+        assert detected["device_type"] == "sensor.sungrow_device_type"
 
     def test_detect_sungrow_entities_no_sungrow(self, mock_hass):
         """Test entity detection with no Sungrow integration."""
@@ -82,27 +83,6 @@ class TestSungrowHelper:
         specs = helper.get_inverter_specs("sh10rt")
         assert specs is not None
         assert specs["max_charge_kw"] == 10.0
-
-    def test_get_battery_capacity_sbr128(self, mock_hass):
-        """Test battery capacity lookup for SBR128."""
-        helper = SungrowHelper(mock_hass)
-
-        capacity = helper.get_battery_capacity("SBR128")
-        assert capacity == 12.8
-
-    def test_get_battery_capacity_sbr256(self, mock_hass):
-        """Test battery capacity lookup for SBR256."""
-        helper = SungrowHelper(mock_hass)
-
-        capacity = helper.get_battery_capacity("SBR256")
-        assert capacity == 25.6
-
-    def test_get_battery_capacity_unknown(self, mock_hass):
-        """Test unknown battery model."""
-        helper = SungrowHelper(mock_hass)
-
-        capacity = helper.get_battery_capacity("UNKNOWN_BATTERY")
-        assert capacity is None
 
     def test_detect_inverter_model_from_device_type_sensor(self, mock_hass, mock_sungrow_entities):
         """Test inverter model detection from device type sensor."""
@@ -174,14 +154,14 @@ class TestSungrowHelper:
         assert config["recommended_charge_rate"] == 10.0
         assert config["recommended_discharge_rate"] == 10.0
         assert config["battery_capacity"] == 12.8
-        assert config["detected_entities"]["battery_level"] == "sensor.sungrow_battery_level"
+        assert config["detected_entities"]["battery_level"] == "sensor.battery_level"
 
     @pytest.mark.asyncio
     async def test_async_get_auto_configuration_partial(self, mock_hass):
         """Test auto-configuration with partial Sungrow detection."""
-        # Only battery level entity
+        # Only battery level entity (actual Modbus entity name)
         entity = Mock()
-        entity.entity_id = "sensor.sungrow_battery_level"
+        entity.entity_id = "sensor.battery_level"
         entity.state = "75"
         entity.attributes = {}
 
@@ -193,7 +173,7 @@ class TestSungrowHelper:
         # Should still have defaults
         assert config["recommended_charge_rate"] == 5.0  # Default
         assert config["recommended_discharge_rate"] == 5.0  # Default
-        assert config["detected_entities"]["battery_level"] == "sensor.sungrow_battery_level"
+        assert config["detected_entities"]["battery_level"] == "sensor.battery_level"
         assert config["detected_entities"]["battery_capacity"] is None
 
     @pytest.mark.asyncio

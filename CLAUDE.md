@@ -91,12 +91,14 @@ The `SungrowHelper` class provides automatic Sungrow integration support:
    - **Sungrow detected**: `async_step_sungrow_auto()` auto-fills entities and rates
    - **Manual**: `async_step_manual()` requires user to select entities
    - **Validation**: Selected Nord Pool entity must have `raw_today` attribute
+   - **Dashboard wizard**: `async_step_dashboard()` provides dashboard import instructions after configuration
 2. **Initialization** - `async_setup_entry()` stores data + options (including auto-detected rates)
-3. **Number entities** - Use auto-detected charge/discharge rates from `entry.options`
-4. **Coordinator** - Polls every 60 seconds, reads Nord Pool `raw_today`/`raw_tomorrow`
-5. **Energy optimizer** - Processes prices and selects optimal slots
-6. **Binary sensors** - Trigger based on current time vs. selected slots
-7. **Automations** - Respond to binary sensor states to control inverter
+3. **Configuration sensor** - `sensor.battery_energy_trading_configuration` exposes all configured entity IDs for dashboard auto-detection
+4. **Number entities** - Use auto-detected charge/discharge rates from `entry.options`
+5. **Coordinator** - Polls every 60 seconds, reads Nord Pool `raw_today`/`raw_tomorrow`
+6. **Energy optimizer** - Processes prices and selects optimal slots
+7. **Binary sensors** - Trigger based on current time vs. selected slots
+8. **Automations** - Respond to binary sensor states to control inverter
 
 ### Services
 
@@ -173,6 +175,7 @@ The integration creates these entity types for user configuration:
 - `switch.battery_energy_trading_enable_forced_charging` (default: OFF)
 - `switch.battery_energy_trading_enable_forced_discharge` (default: ON)
 - `switch.battery_energy_trading_enable_export_management` (default: ON)
+- `switch.battery_energy_trading_enable_multiday_optimization` (default: ON)
 
 **Binary Sensor Entities** (automation triggers):
 - `binary_sensor.battery_energy_trading_forced_discharge` - Currently in high-price slot
@@ -181,6 +184,56 @@ The integration creates these entity types for user configuration:
 - `binary_sensor.battery_energy_trading_export_profitable` - Export is profitable
 - `binary_sensor.battery_energy_trading_battery_low` - Battery below 15%
 - `binary_sensor.battery_energy_trading_solar_available` - Solar production > threshold
+
+**Sensor Entities** (information and schedules):
+- `sensor.battery_energy_trading_configuration` - Diagnostic sensor exposing configured entity IDs (for dashboard auto-detection)
+- `sensor.battery_energy_trading_discharge_time_slots` - Selected discharge slots with detailed attributes
+- `sensor.battery_energy_trading_charging_time_slots` - Selected charging slots with detailed attributes
+- `sensor.battery_energy_trading_arbitrage_opportunities` - Detected arbitrage opportunities with ROI analysis
+
+## Dashboard
+
+The integration includes a comprehensive Lovelace dashboard with **automatic entity detection** - no manual configuration required.
+
+### Dashboard Features
+
+**Automatic Configuration:**
+- Dashboard uses `sensor.battery_energy_trading_configuration` to auto-detect all configured entities
+- Users can copy/paste the dashboard YAML without any modifications
+- Nord Pool entity, battery entities, and solar entities are detected automatically via Jinja2 templates
+
+**Dashboard Sections:**
+1. **Configuration Info Card** - Shows all configured entity IDs for verification
+2. **Nord Pool Price Chart** - ApexCharts visualization of today vs tomorrow prices (requires HACS card)
+3. **Current Status** - Real-time operation status and binary sensor states
+4. **Daily Timeline View** - Consolidated schedule showing all discharge/charge periods for the day
+5. **Operation Modes** - Enable/disable switches with inline descriptions
+6. **Discharge Schedule** - Aggregate metrics + individual slot details (time, energy, price, revenue)
+7. **Charging Schedule** - Aggregate metrics + individual slot details (time, energy, price, cost)
+8. **Arbitrage Opportunities** - Top 5 opportunities with full breakdown (charge/discharge windows, profit, ROI)
+9. **Price Thresholds** - Configure min/max prices for operations
+10. **Battery Settings** - Protection levels and charge/discharge rates
+11. **Solar Settings** - Minimum solar power threshold
+
+**Dashboard Location:**
+- File: `dashboards/battery_energy_trading_dashboard.yaml`
+- Setup wizard in config flow provides import instructions after integration setup
+
+**Attribute Coverage:**
+- 100% of sensor attributes displayed (48/48 attributes)
+- Individual time slot details visible with start/end times
+- All configuration parameters accessible via UI
+
+### Dashboard Setup
+
+Users are guided through dashboard import via the config flow wizard:
+1. Configure integration (entities detected automatically for Sungrow)
+2. Dashboard setup instructions shown in final config step
+3. Copy dashboard YAML from file or documentation
+4. Import via Settings → Dashboards → Raw configuration editor
+5. Dashboard works immediately with zero manual configuration
+
+See `docs/dashboard-setup-guide.md` for detailed setup instructions and troubleshooting.
 
 ## Sungrow Integration
 
