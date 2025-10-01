@@ -17,8 +17,8 @@ from .const import (
     CONF_BATTERY_LEVEL_ENTITY,
     CONF_BATTERY_CAPACITY_ENTITY,
     CONF_SOLAR_POWER_ENTITY,
-    DEFAULT_CHARGE_RATE,
-    DEFAULT_DISCHARGE_RATE,
+    DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_DISCHARGE_RATE_KW,
 )
 from .sungrow_helper import SungrowHelper
 
@@ -167,8 +167,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     title="Battery Energy Trading (Sungrow)",
                     data=user_input,
                     options={
-                        "charge_rate": auto_config.get("recommended_charge_rate", DEFAULT_CHARGE_RATE),
-                        "discharge_rate": auto_config.get("recommended_discharge_rate", DEFAULT_DISCHARGE_RATE),
+                        "charge_rate": auto_config.get("recommended_charge_rate", DEFAULT_CHARGE_RATE_KW),
+                        "discharge_rate": auto_config.get("recommended_discharge_rate", DEFAULT_DISCHARGE_RATE_KW),
                         "inverter_model": auto_config.get("inverter_model"),
                         "auto_detected": True,
                     },
