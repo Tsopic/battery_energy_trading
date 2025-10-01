@@ -4,10 +4,11 @@ from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add custom_components directory to path for direct module import
+# This avoids importing __init__.py which requires homeassistant
+sys.path.insert(0, str(Path(__file__).parent.parent / "custom_components" / "battery_energy_trading"))
 
-from custom_components.battery_energy_trading.energy_optimizer import EnergyOptimizer
+from energy_optimizer import EnergyOptimizer
 
 
 class TestEnergyOptimizer:

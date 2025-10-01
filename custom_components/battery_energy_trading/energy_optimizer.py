@@ -269,6 +269,9 @@ class EnergyOptimizer:
                 slot_copy['battery_after'] = current_battery
                 slot_copy['feasible'] = True
                 slot_copy['energy_kwh'] = energy_needed
+                # Ensure 'price' key exists (use 'value' if that's what's in the slot)
+                if 'price' not in slot_copy and 'value' in slot_copy:
+                    slot_copy['price'] = slot_copy['value']
                 feasible_slots.append(slot_copy)
                 _LOGGER.debug(
                     "Slot %s feasible: %.2f kWh -> %.2f kWh (discharge %.2f kWh)",
