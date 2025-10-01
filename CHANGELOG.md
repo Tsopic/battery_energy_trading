@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.3] - 2025-10-01
+
+### Changes
+
+- fix: improve Sungrow entity detection and code organization
+- fix: auto-release workflow now properly bumps versions from latest tag
+- fix: update Sungrow entity detection patterns to match actual entity names
+
+
 ## [0.5.2] - 2025-10-01
 
 ### Changes
