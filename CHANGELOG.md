@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.1] - 2025-10-01
+
+### Fixed
+- **Critical**: Entity IDs now predictable - added `suggested_object_id` to all entity classes for consistent dashboard integration
+- **Critical**: Entity naming - simplified binary sensor names to match expected entity_id format
+- **Critical**: Version sync completion - added VERSION import to switch.py, number.py, base_entity.py
+
+### Added
+- **Dashboard Enhancement**: Nord Pool price chart now overlays discharge/charge time slots with color-coded highlights
+  - Red shaded areas show selected discharge slots (high price periods)
+  - Green shaded areas show selected charging slots (low price periods)
+  - Provides visual confirmation of optimization strategy at a glance
+
+### Changed
+- All entities now use `suggested_object_id` pattern: `{domain}_{entity_type}`
+- Binary sensor names simplified (e.g., "Forced Discharge Active" → "Forced Discharge")
+- Entity IDs are now consistent across installations: `sensor.battery_energy_trading_configuration`
+- Dashboard price chart title updated to reflect overlay functionality
+
 ## [0.10.0] - 2025-10-01
 
 ### Changes
@@ -30,11 +49,10 @@ All notable changes to this project will be documented in this file.
 - docs: update release process to reflect automated workflow with repository_dispatch [skip ci]
 - fix: enable automatic release workflow triggering via repository_dispatch
 
-
 ## [0.8.0] - 2025-10-01
 
 ### Fixed
-- **Critical**: Version sync - sw_version now reads from manifest.json automatically
+- **Critical**: Version sync - sw_version now reads from manifest.json automatically in sensor.py and binary_sensor.py (completed in v0.8.1 for all platforms)
 - **Critical**: Input validation - battery level/capacity/rate now clamped to safe ranges
 - **Critical**: Division by zero - added validation for zero discharge/charge rates
 - **Critical**: Cache memory leak - expired cache entries now cleaned up automatically

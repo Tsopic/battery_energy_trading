@@ -13,6 +13,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
     DOMAIN,
+    VERSION,
     SWITCH_ENABLE_FORCED_CHARGING,
     SWITCH_ENABLE_FORCED_DISCHARGE,
     SWITCH_ENABLE_EXPORT_MANAGEMENT,
@@ -83,6 +84,7 @@ class BatteryTradingSwitch(SwitchEntity, RestoreEntity):
         self._switch_type = switch_type
         self._attr_name = name
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{switch_type}"
+        self._attr_suggested_object_id = f"{DOMAIN}_{switch_type}"
         self._attr_icon = icon
         self._description = description
         self._attr_is_on = default_state
@@ -92,7 +94,7 @@ class BatteryTradingSwitch(SwitchEntity, RestoreEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.7.0",
+            sw_version=VERSION,
         )
 
     async def async_added_to_hass(self) -> None:

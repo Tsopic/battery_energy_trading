@@ -42,13 +42,13 @@ cards:
         name: "Battery Capacity Entity"
         icon: mdi:battery-high
 
-  # Nord Pool Price Chart - Today vs Tomorrow (Auto-configured)
+  # Nord Pool Price Chart - Today vs Tomorrow with Discharge/Charge Overlays (Auto-configured)
   - type: custom:apexcharts-card
     experimental:
       color_threshold: true
     graph_span: 24h
     header:
-      title: "⚡ Nord Pool - Today vs Tomorrow"
+      title: "⚡ Nord Pool - Today vs Tomorrow with Trading Schedule"
       show: true
     span:
       start: day
@@ -73,6 +73,50 @@ cards:
           return entity.attributes.raw_today.map((start, index) => {
             return [new Date(start["start"]).getTime(), entity.attributes.raw_today[index]["value"] * 1000];
           });
+      # Discharge slots overlay (red highlights)
+      - entity: sensor.battery_energy_trading_discharge_time_slots
+        name: Discharge Slots
+        type: area
+        color: 'rgba(255, 82, 82, 0.3)'
+        stroke_width: 0
+        offset: '-1d'
+        data_generator: |
+          const slots = entity.attributes.slots || [];
+          const nordpool = hass.states[states['sensor.battery_energy_trading_configuration'].attributes.nordpool_entity];
+          if (!nordpool || !nordpool.attributes.raw_today) return [];
+
+          const prices = nordpool.attributes.raw_today;
+          return prices.map((price) => {
+            const time = new Date(price.start).getTime();
+            const inSlot = slots.some(slot => {
+              const start = new Date(slot.start).getTime();
+              const end = new Date(slot.end).getTime();
+              return time >= start && time < end;
+            });
+            return [time, inSlot ? price.value * 1000 : null];
+          }).filter(point => point[1] !== null);
+      # Charging slots overlay (green highlights)
+      - entity: sensor.battery_energy_trading_charging_time_slots
+        name: Charging Slots
+        type: area
+        color: 'rgba(76, 175, 80, 0.3)'
+        stroke_width: 0
+        offset: '-1d'
+        data_generator: |
+          const slots = entity.attributes.slots || [];
+          const nordpool = hass.states[states['sensor.battery_energy_trading_configuration'].attributes.nordpool_entity];
+          if (!nordpool || !nordpool.attributes.raw_today) return [];
+
+          const prices = nordpool.attributes.raw_today;
+          return prices.map((price) => {
+            const time = new Date(price.start).getTime();
+            const inSlot = slots.some(slot => {
+              const start = new Date(slot.start).getTime();
+              const end = new Date(slot.end).getTime();
+              return time >= start && time < end;
+            });
+            return [time, inSlot ? price.value * 1000 : null];
+          }).filter(point => point[1] !== null);
 
   # Main Status Card
   - type: vertical-stack

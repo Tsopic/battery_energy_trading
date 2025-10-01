@@ -100,6 +100,7 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
         self._sensor_type = sensor_type
         self._tracked_entities = tracked_entities
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{sensor_type}"
+        self._attr_suggested_object_id = f"{DOMAIN}_{sensor_type}"
         self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
@@ -181,7 +182,7 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         self._solar_power_entity = solar_power_entity
         self._solar_forecast_entity = solar_forecast_entity
         self._optimizer = optimizer
-        self._attr_name = "Forced Discharge Active"
+        self._attr_name = "Forced Discharge"
         self._attr_device_class = "power"
 
     @property
@@ -325,7 +326,7 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
         self._battery_capacity_entity = battery_capacity_entity
         self._solar_forecast_entity = solar_forecast_entity
         self._optimizer = optimizer
-        self._attr_name = "Cheapest Hours Active"
+        self._attr_name = "Cheapest Hours"
         self._attr_icon = "mdi:clock-check"
 
     @property
