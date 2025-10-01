@@ -105,6 +105,29 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
             )
         )
 
+    def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
+        """Get float value from entity state."""
+        if not entity_id:
+            return default
+
+        state = self.hass.states.get(entity_id)
+        if not state or state.state in ("unknown", "unavailable"):
+            return default
+
+        try:
+            return float(state.state)
+        except (ValueError, TypeError):
+            return default
+
+    def _get_switch_state(self, switch_type: str) -> bool:
+        """Get switch state."""
+        entity_id = f"switch.{DOMAIN}_{self._entry.entry_id}_{switch_type}"
+        state = self.hass.states.get(entity_id)
+        if not state:
+            return True  # Default to enabled if switch not found
+
+        return state.state == "on"
+
 
 class ForcedDischargeSensor(BatteryTradingBinarySensor):
     """Binary sensor for forced discharge timer."""
@@ -179,29 +202,6 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
 
         # Check if we're currently in a discharge slot
         return optimizer.is_current_slot_selected(discharge_slots)
-
-    def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
-        """Get float value from entity state."""
-        if not entity_id:
-            return default
-
-        state = self.hass.states.get(entity_id)
-        if not state or state.state in ("unknown", "unavailable"):
-            return default
-
-        try:
-            return float(state.state)
-        except (ValueError, TypeError):
-            return default
-
-    def _get_switch_state(self, switch_type: str) -> bool:
-        """Get switch state."""
-        entity_id = f"switch.{DOMAIN}_{self._entry.entry_id}_{switch_type}"
-        state = self.hass.states.get(entity_id)
-        if not state:
-            return True  # Default to enabled if switch not found
-
-        return state.state == "on"
 
 
 class LowPriceSensor(BatteryTradingBinarySensor):
