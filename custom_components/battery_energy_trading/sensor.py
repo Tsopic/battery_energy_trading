@@ -56,6 +56,7 @@ async def async_setup_entry(
     optimizer = EnergyOptimizer()
 
     sensors = [
+        ConfigurationSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity),
         ArbitrageOpportunitiesSensor(hass, entry, nordpool_entity, battery_capacity_entity, optimizer),
         DischargeHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
         ChargingHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
@@ -132,6 +133,54 @@ class BatteryTradingSensor(SensorEntity):
         if not state:
             return True  # Default to enabled if switch not found
         return state.state == "on"
+
+
+class ConfigurationSensor(BatteryTradingSensor):
+    """Sensor exposing integration configuration for dashboard use."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        nordpool_entity: str,
+        battery_level_entity: str,
+        battery_capacity_entity: str,
+        solar_forecast_entity: str | None,
+    ) -> None:
+        """Initialize the configuration sensor."""
+        # Use a minimal sensor type name for cleaner entity ID
+        super().__init__(hass, entry, nordpool_entity, "configuration", [])
+        self._nordpool_entity = nordpool_entity
+        self._battery_level_entity = battery_level_entity
+        self._battery_capacity_entity = battery_capacity_entity
+        self._solar_forecast_entity = solar_forecast_entity
+        self._attr_name = "Configuration"
+        self._attr_icon = "mdi:cog"
+        self._attr_entity_category = "diagnostic"  # Mark as diagnostic entity
+
+    @property
+    def state(self) -> str:
+        """Return the state of the sensor."""
+        return "Configured"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return configuration as attributes."""
+        attrs = {
+            "nordpool_entity": self._nordpool_entity,
+            "battery_level_entity": self._battery_level_entity,
+            "battery_capacity_entity": self._battery_capacity_entity,
+        }
+
+        if self._solar_forecast_entity:
+            attrs["solar_forecast_entity"] = self._solar_forecast_entity
+
+        # Get solar power entity from config if available
+        solar_power_entity = self._entry.data.get(CONF_SOLAR_POWER_ENTITY)
+        if solar_power_entity:
+            attrs["solar_power_entity"] = solar_power_entity
+
+        return attrs
 
 
 class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
