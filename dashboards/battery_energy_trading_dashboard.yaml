@@ -1,9 +1,14 @@
 # Battery Energy Trading Dashboard
 # Copy this entire file and paste it when creating a new dashboard in Home Assistant
 #
-# AUTOMATIC CONFIGURATION:
-# This dashboard automatically detects your configured Nord Pool entity from the
-# Battery Energy Trading integration - no manual configuration needed!
+# SETUP REQUIRED:
+# You must replace 'sensor.nordpool_kwh_se3_eur_3_10_025' with your actual Nord Pool entity ID
+# in 3 locations (marked with # REPLACE WITH YOUR NORD POOL ENTITY comments):
+# 1. Line ~59: Nord Pool price chart - Tomorrow series
+# 2. Line ~67: Nord Pool price chart - Today series
+# 3. Line ~152: Current Status - Current Price entity
+#
+# Find your Nord Pool entity ID in the Integration Configuration card at the top of this dashboard.
 #
 # Requirements:
 # - Battery Energy Trading integration installed and configured
@@ -11,7 +16,7 @@
 #
 # Note: If ApexCharts is not installed, the price chart won't display but all other cards will work fine.
 #
-# Version: 0.9.0+ (includes automatic entity detection and detailed slot visibility)
+# Version: 0.10.1+ (includes entity ID fixes, timeslot overlays, and manual Nord Pool configuration)
 
 title: Battery Energy Trading
 path: battery-energy-trading
@@ -149,8 +154,7 @@ cards:
           - entity: binary_sensor.battery_energy_trading_solar_available
             name: "Solar Active"
             icon: mdi:solar-power
-          - entity: >
-              {{ state_attr('sensor.battery_energy_trading_configuration', 'nordpool_entity') }}
+          - entity: sensor.nordpool_kwh_se3_eur_3_10_025  # REPLACE WITH YOUR NORD POOL ENTITY
             name: "Current Price"
             icon: mdi:currency-eur
 
