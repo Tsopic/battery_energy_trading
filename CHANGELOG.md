@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2025-10-01
+
+### Changes
+
+- fix: robust solar forecast parsing with multiple datetime formats
+- feat: complete sensor.py multi-day integration and bump to v0.7.0
+- feat: multi-day optimization with solar forecast integration
+
+
 ## [0.7.0] - 2025-10-01
 
 ### Changes
