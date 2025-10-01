@@ -22,10 +22,20 @@ from .const import (
     BINARY_SENSOR_CHEAPEST_HOURS,
     BINARY_SENSOR_BATTERY_LOW,
     BINARY_SENSOR_SOLAR_AVAILABLE,
+    NUMBER_MIN_EXPORT_PRICE,
+    NUMBER_MIN_FORCED_SELL_PRICE,
+    NUMBER_MAX_FORCE_CHARGE_PRICE,
+    NUMBER_MIN_BATTERY_LEVEL,
+    NUMBER_MIN_SOLAR_THRESHOLD,
+    NUMBER_FORCE_CHARGE_TARGET,
     DEFAULT_MIN_EXPORT_PRICE,
+    DEFAULT_MIN_FORCED_SELL_PRICE,
+    DEFAULT_MAX_FORCE_CHARGE_PRICE,
     DEFAULT_MIN_BATTERY_LEVEL,
     DEFAULT_MIN_SOLAR_THRESHOLD,
+    DEFAULT_FORCE_CHARGE_TARGET,
 )
+from .energy_optimizer import EnergyOptimizer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,13 +51,15 @@ async def async_setup_entry(
     battery_capacity_entity = entry.data[CONF_BATTERY_CAPACITY_ENTITY]
     solar_power_entity = entry.data.get(CONF_SOLAR_POWER_ENTITY)
 
+    optimizer = EnergyOptimizer()
+
     sensors = [
         ForcedDischargeSensor(
-            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_power_entity
+            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_power_entity, optimizer
         ),
         LowPriceSensor(hass, entry, nordpool_entity),
         ExportProfitableSensor(hass, entry, nordpool_entity),
-        CheapestHoursSensor(hass, entry, nordpool_entity),
+        CheapestHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, optimizer),
         BatteryLowSensor(hass, entry, battery_level_entity),
     ]
 

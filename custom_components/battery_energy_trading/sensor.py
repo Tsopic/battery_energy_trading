@@ -14,12 +14,21 @@ from homeassistant.helpers.event import async_track_state_change_event
 from .const import (
     DOMAIN,
     CONF_NORDPOOL_ENTITY,
+    CONF_BATTERY_LEVEL_ENTITY,
+    CONF_BATTERY_CAPACITY_ENTITY,
     SENSOR_ARBITRAGE_OPPORTUNITIES,
     SENSOR_DISCHARGE_HOURS,
     SENSOR_CHARGING_HOURS,
     SENSOR_PROFITABLE_HOURS,
     SENSOR_ECONOMICAL_HOURS,
+    NUMBER_MIN_FORCED_SELL_PRICE,
+    NUMBER_MAX_FORCE_CHARGE_PRICE,
+    NUMBER_FORCE_CHARGE_TARGET,
+    DEFAULT_MIN_FORCED_SELL_PRICE,
+    DEFAULT_MAX_FORCE_CHARGE_PRICE,
+    DEFAULT_FORCE_CHARGE_TARGET,
 )
+from .energy_optimizer import EnergyOptimizer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,13 +40,15 @@ async def async_setup_entry(
 ) -> None:
     """Set up Battery Energy Trading sensors."""
     nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
+    battery_level_entity = entry.data[CONF_BATTERY_LEVEL_ENTITY]
+    battery_capacity_entity = entry.data[CONF_BATTERY_CAPACITY_ENTITY]
+
+    optimizer = EnergyOptimizer()
 
     sensors = [
-        ArbitrageOpportunitiesSensor(hass, entry, nordpool_entity),
-        DischargeHoursSensor(hass, entry, nordpool_entity),
-        ChargingHoursSensor(hass, entry, nordpool_entity),
-        ProfitableHoursSensor(hass, entry, nordpool_entity),
-        EconomicalHoursSensor(hass, entry, nordpool_entity),
+        ArbitrageOpportunitiesSensor(hass, entry, nordpool_entity, battery_capacity_entity, optimizer),
+        DischargeHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, optimizer),
+        ChargingHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, optimizer),
     ]
 
     async_add_entities(sensors)
@@ -52,12 +63,14 @@ class BatteryTradingSensor(SensorEntity):
         entry: ConfigEntry,
         nordpool_entity: str,
         sensor_type: str,
+        tracked_entities: list[str] | None = None,
     ) -> None:
         """Initialize the sensor."""
         self.hass = hass
         self._entry = entry
         self._nordpool_entity = nordpool_entity
         self._sensor_type = sensor_type
+        self._tracked_entities = tracked_entities or [nordpool_entity]
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{sensor_type}"
         self._attr_has_entity_name = True
 
@@ -72,17 +85,45 @@ class BatteryTradingSensor(SensorEntity):
 
         self.async_on_remove(
             async_track_state_change_event(
-                self.hass, [self._nordpool_entity], sensor_state_listener
+                self.hass, self._tracked_entities, sensor_state_listener
             )
         )
+
+    def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
+        """Get float value from entity state."""
+        if not entity_id:
+            return default
+
+        state = self.hass.states.get(entity_id)
+        if not state or state.state in ("unknown", "unavailable"):
+            return default
+
+        try:
+            return float(state.state)
+        except (ValueError, TypeError):
+            return default
+
+    def _get_number_entity_value(self, number_type: str, default: float) -> float:
+        """Get value from number entity."""
+        entity_id = f"number.{DOMAIN}_{self._entry.entry_id}_{number_type}"
+        return self._get_float_state(entity_id, default)
 
 
 class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
     """Sensor for detecting arbitrage opportunities."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, nordpool_entity: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        nordpool_entity: str,
+        battery_capacity_entity: str,
+        optimizer: EnergyOptimizer,
+    ) -> None:
         """Initialize the arbitrage sensor."""
-        super().__init__(hass, entry, nordpool_entity, SENSOR_ARBITRAGE_OPPORTUNITIES)
+        super().__init__(hass, entry, nordpool_entity, SENSOR_ARBITRAGE_OPPORTUNITIES, [nordpool_entity, battery_capacity_entity])
+        self._battery_capacity_entity = battery_capacity_entity
+        self._optimizer = optimizer
         self._attr_name = "Arbitrage Opportunities"
         self._attr_icon = "mdi:chart-line"
 
@@ -97,96 +138,243 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
         if not raw_today or len(raw_today) < 3:
             return "Insufficient data"
 
-        threshold = 100  # Price difference threshold in points
-        best_opportunity = {
-            "charge_start_hour": 0,
-            "charge_end_hour": 1,
-            "discharge_hour": 2,
-            "difference": 0,
-        }
+        battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
 
-        for i in range(len(raw_today) - 2):
-            charge_price = (raw_today[i]["value"] + raw_today[i + 1]["value"]) / 2
+        opportunities = self._optimizer.calculate_arbitrage_opportunities(
+            raw_today,
+            battery_capacity,
+            min_profit_threshold=0.50,  # Minimum 0.50 EUR profit
+        )
 
-            for j in range(i + 2, len(raw_today)):
-                discharge_price = raw_today[j]["value"]
-                price_difference = (discharge_price - charge_price) * 1000
+        if opportunities:
+            best = opportunities[0]
+            return f"Charge {best['charge_start'].strftime('%H:%M')}-{best['charge_end'].strftime('%H:%M')}, Discharge {best['discharge_start'].strftime('%H:%M')} (Profit: €{best['profit']:.2f})"
 
-                if price_difference > threshold and price_difference > best_opportunity["difference"]:
-                    best_opportunity = {
-                        "charge_start_hour": raw_today[i]["start"].hour,
-                        "charge_end_hour": raw_today[i + 1]["end"].hour,
-                        "discharge_hour": raw_today[j]["start"].hour,
-                        "difference": price_difference,
-                    }
-
-        if best_opportunity["difference"] > 0:
-            return f"Charge {best_opportunity['charge_start_hour']}-{best_opportunity['charge_end_hour']}, Discharge {best_opportunity['discharge_hour']} ({best_opportunity['difference']:.0f} points)"
-
-        return f"No opportunities (threshold: {threshold} points)"
+        return "No profitable opportunities found"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        return {"threshold": 100, "unit": "points"}
+        nordpool_state = self.hass.states.get(self._nordpool_entity)
+        if not nordpool_state:
+            return {}
+
+        raw_today = nordpool_state.attributes.get("raw_today", [])
+        if not raw_today:
+            return {}
+
+        battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+
+        opportunities = self._optimizer.calculate_arbitrage_opportunities(
+            raw_today,
+            battery_capacity,
+            min_profit_threshold=0.50,
+        )
+
+        return {
+            "opportunities_count": len(opportunities),
+            "best_profit": opportunities[0]["profit"] if opportunities else 0,
+            "best_roi": opportunities[0]["roi_percent"] if opportunities else 0,
+            "all_opportunities": opportunities[:5],  # Top 5
+        }
 
 
 class DischargeHoursSensor(BatteryTradingSensor):
-    """Sensor for selected discharge hours."""
+    """Sensor for selected discharge hours with 15-min slot support."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, nordpool_entity: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        nordpool_entity: str,
+        battery_level_entity: str,
+        battery_capacity_entity: str,
+        optimizer: EnergyOptimizer,
+    ) -> None:
         """Initialize the discharge hours sensor."""
-        super().__init__(hass, entry, nordpool_entity, SENSOR_DISCHARGE_HOURS)
-        self._attr_name = "Selected Discharge Hours"
+        super().__init__(
+            hass,
+            entry,
+            nordpool_entity,
+            SENSOR_DISCHARGE_HOURS,
+            [nordpool_entity, battery_level_entity, battery_capacity_entity],
+        )
+        self._battery_level_entity = battery_level_entity
+        self._battery_capacity_entity = battery_capacity_entity
+        self._optimizer = optimizer
+        self._attr_name = "Discharge Time Slots"
         self._attr_icon = "mdi:battery-arrow-up"
 
     @property
     def state(self) -> str:
         """Return the state of the sensor."""
-        # Implementation similar to template sensor logic
-        return "Implementation pending"
+        slots = self._get_discharge_slots()
+
+        if not slots:
+            return "No discharge slots selected"
+
+        # Format: "HH:MM-HH:MM (X.X kWh @ €Y.YY)"
+        slot_strs = []
+        for slot in slots:
+            slot_strs.append(
+                f"{slot['start'].strftime('%H:%M')}-{slot['end'].strftime('%H:%M')} "
+                f"({slot['energy_kwh']:.1f}kWh @€{slot['price']:.3f})"
+            )
+
+        return ", ".join(slot_strs)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        slots = self._get_discharge_slots()
+
+        if not slots:
+            return {
+                "slot_count": 0,
+                "total_energy_kwh": 0,
+                "estimated_revenue_eur": 0,
+                "slots": [],
+            }
+
+        return {
+            "slot_count": len(slots),
+            "total_energy_kwh": sum(s["energy_kwh"] for s in slots),
+            "estimated_revenue_eur": sum(s["revenue"] for s in slots),
+            "average_price": sum(s["price"] for s in slots) / len(slots),
+            "slots": [
+                {
+                    "start": s["start"].isoformat(),
+                    "end": s["end"].isoformat(),
+                    "energy_kwh": s["energy_kwh"],
+                    "price": s["price"],
+                    "revenue": s["revenue"],
+                }
+                for s in slots
+            ],
+        }
+
+    def _get_discharge_slots(self) -> list[dict[str, Any]]:
+        """Calculate discharge slots."""
+        nordpool_state = self.hass.states.get(self._nordpool_entity)
+        if not nordpool_state:
+            return []
+
+        raw_today = nordpool_state.attributes.get("raw_today", [])
+        if not raw_today:
+            return []
+
+        battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+        battery_level = self._get_float_state(self._battery_level_entity, 0.0)
+        min_sell_price = self._get_number_entity_value(
+            NUMBER_MIN_FORCED_SELL_PRICE, DEFAULT_MIN_FORCED_SELL_PRICE
+        )
+
+        return self._optimizer.select_discharge_slots(
+            raw_today,
+            min_sell_price,
+            battery_capacity,
+            battery_level,
+            discharge_rate=5.0,  # 5kW discharge rate
+        )
 
 
 class ChargingHoursSensor(BatteryTradingSensor):
-    """Sensor for selected charging hours."""
+    """Sensor for selected charging hours with 15-min slot support."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, nordpool_entity: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        nordpool_entity: str,
+        battery_level_entity: str,
+        battery_capacity_entity: str,
+        optimizer: EnergyOptimizer,
+    ) -> None:
         """Initialize the charging hours sensor."""
-        super().__init__(hass, entry, nordpool_entity, SENSOR_CHARGING_HOURS)
-        self._attr_name = "Selected Charging Hours"
+        super().__init__(
+            hass,
+            entry,
+            nordpool_entity,
+            SENSOR_CHARGING_HOURS,
+            [nordpool_entity, battery_level_entity, battery_capacity_entity],
+        )
+        self._battery_level_entity = battery_level_entity
+        self._battery_capacity_entity = battery_capacity_entity
+        self._optimizer = optimizer
+        self._attr_name = "Charging Time Slots"
         self._attr_icon = "mdi:battery-arrow-down"
 
     @property
     def state(self) -> str:
         """Return the state of the sensor."""
-        return "Implementation pending"
+        slots = self._get_charging_slots()
 
+        if not slots:
+            return "No charging slots selected"
 
-class ProfitableHoursSensor(BatteryTradingSensor):
-    """Sensor for profitable sell hours."""
+        slot_strs = []
+        for slot in slots:
+            slot_strs.append(
+                f"{slot['start'].strftime('%H:%M')}-{slot['end'].strftime('%H:%M')} "
+                f"({slot['energy_kwh']:.1f}kWh @€{slot['price']:.3f})"
+            )
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, nordpool_entity: str) -> None:
-        """Initialize the profitable hours sensor."""
-        super().__init__(hass, entry, nordpool_entity, SENSOR_PROFITABLE_HOURS)
-        self._attr_name = "Profitable Sell Hours"
-        self._attr_icon = "mdi:currency-eur"
-
-    @property
-    def state(self) -> str:
-        """Return the state of the sensor."""
-        return "Implementation pending"
-
-
-class EconomicalHoursSensor(BatteryTradingSensor):
-    """Sensor for economical charge hours."""
-
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, nordpool_entity: str) -> None:
-        """Initialize the economical hours sensor."""
-        super().__init__(hass, entry, nordpool_entity, SENSOR_ECONOMICAL_HOURS)
-        self._attr_name = "Economical Charge Hours"
-        self._attr_icon = "mdi:lightning-bolt"
+        return ", ".join(slot_strs)
 
     @property
-    def state(self) -> str:
-        """Return the state of the sensor."""
-        return "Implementation pending"
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        slots = self._get_charging_slots()
+
+        if not slots:
+            return {
+                "slot_count": 0,
+                "total_energy_kwh": 0,
+                "estimated_cost_eur": 0,
+                "slots": [],
+            }
+
+        return {
+            "slot_count": len(slots),
+            "total_energy_kwh": sum(s["energy_kwh"] for s in slots),
+            "estimated_cost_eur": sum(s["cost"] for s in slots),
+            "average_price": sum(s["price"] for s in slots) / len(slots),
+            "slots": [
+                {
+                    "start": s["start"].isoformat(),
+                    "end": s["end"].isoformat(),
+                    "energy_kwh": s["energy_kwh"],
+                    "price": s["price"],
+                    "cost": s["cost"],
+                }
+                for s in slots
+            ],
+        }
+
+    def _get_charging_slots(self) -> list[dict[str, Any]]:
+        """Calculate charging slots."""
+        nordpool_state = self.hass.states.get(self._nordpool_entity)
+        if not nordpool_state:
+            return []
+
+        raw_today = nordpool_state.attributes.get("raw_today", [])
+        if not raw_today:
+            return []
+
+        battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+        battery_level = self._get_float_state(self._battery_level_entity, 0.0)
+        max_charge_price = self._get_number_entity_value(
+            NUMBER_MAX_FORCE_CHARGE_PRICE, DEFAULT_MAX_FORCE_CHARGE_PRICE
+        )
+        target_level = self._get_number_entity_value(
+            NUMBER_FORCE_CHARGE_TARGET, DEFAULT_FORCE_CHARGE_TARGET
+        )
+
+        return self._optimizer.select_charging_slots(
+            raw_today,
+            max_charge_price,
+            battery_capacity,
+            battery_level,
+            target_level,
+            charge_rate=5.0,  # 5kW charge rate
+        )
