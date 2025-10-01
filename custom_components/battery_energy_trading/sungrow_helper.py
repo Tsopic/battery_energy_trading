@@ -28,25 +28,33 @@ SUNGROW_INVERTER_SPECS = {
 
 
 # Common Sungrow entity patterns
+# Matches both sungrow-prefixed and standard battery entity names
 SUNGROW_ENTITY_PATTERNS = {
     "battery_level": [
         r"sensor\..*sungrow.*battery.*level",
         r"sensor\..*sungrow.*battery.*soc",
         r"sensor\..*sungrow.*soc",
         r"sensor\.sh\d+rt.*battery.*level",
+        r"sensor\.battery_level",
+        r"sensor\.battery_soc",
     ],
     "battery_capacity": [
         r"sensor\..*sungrow.*battery.*capacity",
         r"sensor\..*sungrow.*capacity",
+        r"sensor\.battery_capacity",
     ],
     "solar_power": [
         r"sensor\..*sungrow.*pv.*power",
         r"sensor\..*sungrow.*total.*pv",
         r"sensor\..*sungrow.*solar.*power",
+        r"sensor\.total_dc_power",
+        r"sensor\.pv_power",
+        r"sensor\.mppt\d?_power",
     ],
     "device_type": [
         r"sensor\..*sungrow.*device.*type",
         r"sensor\..*sungrow.*model",
+        r"sensor\.sungrow_device_type",
     ],
 }
 
