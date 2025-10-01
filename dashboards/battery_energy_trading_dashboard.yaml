@@ -1,8 +1,12 @@
 # Battery Energy Trading Dashboard
 # Copy this entire file and paste it when creating a new dashboard in Home Assistant
 #
+# IMPORTANT: Replace 'sensor.nordpool_kwh_ee_eur_3_10_022' with your actual Nord Pool entity ID
+#
 # Note: ApexCharts card requires the custom:apexcharts-card to be installed via HACS
 # If you don't have it installed, the price chart won't display but other cards will work
+#
+# Version: 0.8.0+ (includes multi-day optimization)
 
 title: Battery Energy Trading
 path: battery-energy-trading
@@ -86,22 +90,79 @@ cards:
           - entity: switch.battery_energy_trading_enable_export_management
             name: "Enable Smart Export Control"
             icon: mdi:transmission-tower
+          - entity: switch.battery_energy_trading_enable_multiday_optimization
+            name: "Enable Multi-Day Optimization"
+            icon: mdi:calendar-multiple
 
   # Discharge Schedule
-  - type: entities
-    title: "📤 Discharge Schedule (Selling)"
-    entities:
-      - entity: sensor.battery_energy_trading_discharge_time_slots
-        name: "Discharge Slots"
-        icon: mdi:battery-arrow-up
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 📤 Discharge Schedule (Selling)"
+
+      - type: entities
+        entities:
+          - entity: sensor.battery_energy_trading_discharge_time_slots
+            name: "Discharge Slots"
+            icon: mdi:battery-arrow-up
+          - type: attribute
+            entity: sensor.battery_energy_trading_discharge_time_slots
+            attribute: slot_count
+            name: "Total Slots"
+            icon: mdi:counter
+          - type: attribute
+            entity: sensor.battery_energy_trading_discharge_time_slots
+            attribute: total_energy_kwh
+            name: "Total Energy"
+            suffix: " kWh"
+            icon: mdi:lightning-bolt
+          - type: attribute
+            entity: sensor.battery_energy_trading_discharge_time_slots
+            attribute: estimated_revenue_eur
+            name: "Est. Revenue"
+            suffix: " EUR"
+            icon: mdi:currency-eur
+          - type: attribute
+            entity: sensor.battery_energy_trading_discharge_time_slots
+            attribute: average_price
+            name: "Avg Price"
+            suffix: " EUR/kWh"
+            icon: mdi:chart-line
 
   # Charging Schedule
-  - type: entities
-    title: "📥 Charging Schedule (Buying)"
-    entities:
-      - entity: sensor.battery_energy_trading_charging_time_slots
-        name: "Charging Slots"
-        icon: mdi:battery-arrow-down
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 📥 Charging Schedule (Buying)"
+
+      - type: entities
+        entities:
+          - entity: sensor.battery_energy_trading_charging_time_slots
+            name: "Charging Slots"
+            icon: mdi:battery-arrow-down
+          - type: attribute
+            entity: sensor.battery_energy_trading_charging_time_slots
+            attribute: slot_count
+            name: "Total Slots"
+            icon: mdi:counter
+          - type: attribute
+            entity: sensor.battery_energy_trading_charging_time_slots
+            attribute: total_energy_kwh
+            name: "Total Energy"
+            suffix: " kWh"
+            icon: mdi:lightning-bolt
+          - type: attribute
+            entity: sensor.battery_energy_trading_charging_time_slots
+            attribute: estimated_cost_eur
+            name: "Est. Cost"
+            suffix: " EUR"
+            icon: mdi:currency-eur
+          - type: attribute
+            entity: sensor.battery_energy_trading_charging_time_slots
+            attribute: average_price
+            name: "Avg Price"
+            suffix: " EUR/kWh"
+            icon: mdi:chart-line
 
   # Arbitrage Opportunities
   - type: entities
