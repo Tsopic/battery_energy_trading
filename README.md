@@ -55,20 +55,23 @@ A comprehensive Home Assistant integration for intelligent battery management an
 
 ### HACS (Recommended)
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Tsopic&repository=battery_energy_trading&category=integration)
+
 1. **Install Nord Pool integration first** (if not already installed)
    - In HACS → Integrations → Search for "nordpool"
    - Install and configure with your electricity area
-2. Open HACS in Home Assistant
-3. Click on `Integrations`
-4. Click the three dots in the top right corner
-5. Select `Custom repositories`
-6. Add this repository URL: `https://github.com/Tsopic/battery_energy_trading`
-7. Select category: `Integration`
-8. Click `Add`
-9. Click `+ Explore & Download Repositories`
-10. Search for `Battery Energy Trading`
-11. Click `Download`
-12. Restart Home Assistant
+2. Click the badge above to add this repository to HACS, **OR** manually add it:
+   - Open HACS in Home Assistant
+   - Click on `Integrations`
+   - Click the three dots in the top right corner
+   - Select `Custom repositories`
+   - Add this repository URL: `https://github.com/Tsopic/battery_energy_trading`
+   - Select category: `Integration`
+   - Click `Add`
+3. Click `+ Explore & Download Repositories`
+4. Search for `Battery Energy Trading`
+5. Click `Download`
+6. Restart Home Assistant
 
 ### Manual Installation
 
