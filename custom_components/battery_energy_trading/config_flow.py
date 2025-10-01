@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from pathlib import Path
 
 import voluptuous as vol
 
@@ -10,6 +11,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
+from homeassistant.components import lovelace
 
 from .const import (
     DOMAIN,
@@ -55,6 +57,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self._sungrow_config: dict[str, Any] | None = None
         self._detected_entities: dict[str, str | None] | None = None
+        self._config_data: dict[str, Any] | None = None
+        self._config_options: dict[str, Any] = {}
 
     def _is_nordpool_available(self) -> bool:
         """Check if Nord Pool integration is available."""
@@ -166,17 +170,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._validate_entities(user_input, errors)
 
             if not errors:
-                # Store auto-detected charge/discharge rates in options
-                return self.async_create_entry(
-                    title="Battery Energy Trading (Sungrow)",
-                    data=user_input,
-                    options={
-                        "charge_rate": auto_config.get("recommended_charge_rate", DEFAULT_CHARGE_RATE_KW),
-                        "discharge_rate": auto_config.get("recommended_discharge_rate", DEFAULT_DISCHARGE_RATE_KW),
-                        "inverter_model": auto_config.get("inverter_model"),
-                        "auto_detected": True,
-                    },
-                )
+                # Store config data for dashboard creation step
+                self._config_data = user_input
+                self._config_options = {
+                    "charge_rate": auto_config.get("recommended_charge_rate", DEFAULT_CHARGE_RATE_KW),
+                    "discharge_rate": auto_config.get("recommended_discharge_rate", DEFAULT_DISCHARGE_RATE_KW),
+                    "inverter_model": auto_config.get("inverter_model"),
+                    "auto_detected": True,
+                }
+                # Offer dashboard creation
+                return await self.async_step_dashboard()
 
         # Build schema with auto-detected defaults
         suggested_values = {
@@ -237,13 +240,55 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._validate_entities(user_input, errors)
 
             if not errors:
-                return self.async_create_entry(
-                    title="Battery Energy Trading",
-                    data=user_input,
-                )
+                # Store config data for dashboard creation step
+                self._config_data = user_input
+                self._config_options = {}
+                # Offer dashboard creation
+                return await self.async_step_dashboard()
 
         return self.async_show_form(
             step_id="manual",
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
+        )
+
+    async def async_step_dashboard(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Provide dashboard setup instructions."""
+        if user_input is not None:
+            # Create the config entry
+            title = "Battery Energy Trading (Sungrow)" if self._config_options.get("auto_detected") else "Battery Energy Trading"
+            return self.async_create_entry(
+                title=title,
+                data=self._config_data,
+                options=self._config_options,
+            )
+
+        # Get the dashboard YAML path for reference
+        dashboard_path = Path(__file__).parent / "dashboards" / "battery_energy_trading_dashboard.yaml"
+        dashboard_exists = dashboard_path.exists()
+
+        return self.async_show_form(
+            step_id="dashboard",
+            data_schema=vol.Schema({}),  # No input needed, just informational
+            description_placeholders={
+                "info": "✅ Integration configured successfully!\n\n"
+                        "📊 **Next Step: Add Dashboard**\n\n"
+                        "A ready-to-use dashboard is available that includes:\n"
+                        "• Real-time Nord Pool price monitoring\n"
+                        "• Discharge and charging schedules with time slots\n"
+                        "• Arbitrage opportunities analysis\n"
+                        "• All configuration controls\n"
+                        "• Automatic entity detection (zero configuration!)\n\n"
+                        "**To add the dashboard:**\n"
+                        "1. Go to Settings → Dashboards\n"
+                        "2. Click '+ Add Dashboard' → 'New dashboard from scratch'\n"
+                        "3. Click ⋮ menu → 'Edit Dashboard' → ⋮ → 'Raw configuration editor'\n"
+                        "4. Copy the dashboard YAML from:\n"
+                        f"   {dashboard_path if dashboard_exists else 'docs/dashboard-setup-guide.md'}\n"
+                        "5. Paste and save\n\n"
+                        "The dashboard will automatically detect your configured entities - no manual editing needed!\n\n"
+                        "Click 'Submit' to complete setup."
+            },
         )
