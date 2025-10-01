@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2025-10-01
+
+### Changes
+
+- fix: resolve Hassfest validation errors for CI
+- fix: comprehensive code quality improvements and performance optimizations
+- docs: update implementation summary with integration test coverage
+- test: add comprehensive integration tests for multi-peak discharge logic
+- test: fix battery state projection tests and improve test imports
+- feat: implement intelligent multi-peak discharge with battery state projection
+- docs: add comprehensive refactoring summary document
+- docs: update CLAUDE.md with dashboard features and configuration sensor
+- feat: add dashboard setup wizard to config flow
+- feat: add automatic Nord Pool entity detection for dashboard
+- feat: enhance dashboard with detailed time slot visibility and complete attribute coverage
+- docs: add comprehensive refactoring documentation for Sungrow entity detection
+- refactor: improve Sungrow entity detection accuracy based on actual modbus integration
+
+
 ## [0.9.0] - 2025-10-01
 
 ### Changes
