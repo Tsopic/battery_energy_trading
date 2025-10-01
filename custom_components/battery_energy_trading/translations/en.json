@@ -13,10 +13,12 @@
       }
     },
     "error": {
-      "entity_not_found": "Entity not found. Please check the entity ID."
+      "entity_not_found": "Entity not found. Please check the entity ID.",
+      "nordpool_missing_raw_today": "This Nord Pool sensor does not have the required 'raw_today' attribute. Please select a valid Nord Pool price sensor (usually named 'sensor.nordpool_kwh_...')."
     },
     "abort": {
-      "already_configured": "This integration is already configured."
+      "already_configured": "This integration is already configured.",
+      "nordpool_not_found": "Nord Pool integration not found. Please install and configure the Nord Pool integration (https://github.com/custom-components/nordpool) before setting up Battery Energy Trading."
     }
   }
 }

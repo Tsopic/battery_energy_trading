@@ -4,10 +4,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
+
+from .sungrow_helper import SungrowHelper
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,17 +24,74 @@ PLATFORMS = [
     Platform.SWITCH,
 ]
 
+SERVICE_SYNC_SUNGROW_PARAMS = "sync_sungrow_parameters"
+
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Set up the Battery Energy Trading component."""
     hass.data.setdefault(DOMAIN, {})
+
+    async def handle_sync_sungrow_params(call: ServiceCall) -> None:
+        """Handle the service call to sync Sungrow parameters."""
+        entry_id = call.data.get("entry_id")
+
+        if not entry_id:
+            # Find the first Sungrow-enabled config entry
+            for entry in hass.config_entries.async_entries(DOMAIN):
+                if entry.options.get("auto_detected"):
+                    entry_id = entry.entry_id
+                    break
+
+        if not entry_id:
+            _LOGGER.error("No Battery Energy Trading integration with Sungrow auto-detection found")
+            return
+
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if not entry:
+            _LOGGER.error("Config entry %s not found", entry_id)
+            return
+
+        # Get fresh Sungrow configuration
+        sungrow_helper = SungrowHelper(hass)
+        auto_config = await sungrow_helper.async_get_auto_configuration()
+
+        # Update options with new values
+        new_options = dict(entry.options)
+        new_options["charge_rate"] = auto_config.get("recommended_charge_rate", 5.0)
+        new_options["discharge_rate"] = auto_config.get("recommended_discharge_rate", 5.0)
+        new_options["inverter_model"] = auto_config.get("inverter_model")
+
+        hass.config_entries.async_update_entry(entry, options=new_options)
+
+        _LOGGER.info(
+            "Synced Sungrow parameters: charge_rate=%.1f kW, discharge_rate=%.1f kW, model=%s",
+            new_options["charge_rate"],
+            new_options["discharge_rate"],
+            new_options["inverter_model"],
+        )
+
+    # Register service
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SYNC_SUNGROW_PARAMS,
+        handle_sync_sungrow_params,
+        schema=vol.Schema(
+            {
+                vol.Optional("entry_id"): cv.string,
+            }
+        ),
+    )
+
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Battery Energy Trading from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = entry.data
+    hass.data[DOMAIN][entry.entry_id] = {
+        "data": entry.data,
+        "options": entry.options,
+    }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

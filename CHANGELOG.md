@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-01-10
+
+### Added
+- **Base entity class** - Shared `BatteryTradingBaseEntity` with common helper methods
+- **Configurable charge/discharge rates** - Number entities for battery charge rate (1-20 kW) and discharge rate (1-20 kW)
+- **Improved error handling** - Enhanced logging and safe attribute access
+- **Better observability** - Added logging throughout for easier debugging
+
+### Changed
+- **Refactored code structure** - Eliminated code duplication across sensor and binary_sensor files
+- **Enhanced type safety** - Added comprehensive type hints and documentation
+- **Improved logging** - Debug and warning logs for state changes and errors
+
+### Fixed
+- **Error resilience** - Graceful handling of missing entities and invalid states
+- **Safer attribute access** - Protected access to Nord Pool data attributes
+
 ## [0.2.0] - 2025-01-10
 
 ### Added

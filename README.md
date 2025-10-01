@@ -3,6 +3,9 @@
 [![GitHub Release](https://img.shields.io/github/v/release/Tsopic/battery_energy_trading)](https://github.com/Tsopic/battery_energy_trading/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
 
+> **⚠️ DEVELOPMENT STATUS**
+> This custom component is currently under active development and has not been fully tested in production environments. Use at your own risk and please report any issues you encounter.
+
 A comprehensive Home Assistant integration for intelligent battery management and energy trading optimization. Automatically buy energy when prices are low, sell when prices are high, and maximize solar energy utilization.
 
 ## 🎯 Features
@@ -38,27 +41,41 @@ A comprehensive Home Assistant integration for intelligent battery management an
 4. **Solar Maximization** - Optimizes solar energy usage and storage
 5. **Grid Independence** - Reduces reliance on grid during expensive periods
 
+## 📋 Prerequisites
+
+**Required:**
+- **Nord Pool Integration** - This integration requires the [Nord Pool](https://github.com/custom-components/nordpool) integration to be installed and configured first
+  - Install via HACS or manually
+  - Must have at least one Nord Pool price sensor with `raw_today` attribute
+
+**Optional but Recommended:**
+- **Sungrow Integration** - For automatic inverter detection and configuration
+
 ## 🚀 Installation
 
 ### HACS (Recommended)
 
-1. Open HACS in Home Assistant
-2. Click on `Integrations`
-3. Click the three dots in the top right corner
-4. Select `Custom repositories`
-5. Add this repository URL: `https://github.com/Tsopic/battery_energy_trading`
-6. Select category: `Integration`
-7. Click `Add`
-8. Click `+ Explore & Download Repositories`
-9. Search for `Battery Energy Trading`
-10. Click `Download`
-11. Restart Home Assistant
+1. **Install Nord Pool integration first** (if not already installed)
+   - In HACS → Integrations → Search for "nordpool"
+   - Install and configure with your electricity area
+2. Open HACS in Home Assistant
+3. Click on `Integrations`
+4. Click the three dots in the top right corner
+5. Select `Custom repositories`
+6. Add this repository URL: `https://github.com/Tsopic/battery_energy_trading`
+7. Select category: `Integration`
+8. Click `Add`
+9. Click `+ Explore & Download Repositories`
+10. Search for `Battery Energy Trading`
+11. Click `Download`
+12. Restart Home Assistant
 
 ### Manual Installation
 
-1. Download the [latest release](https://github.com/Tsopic/battery_energy_trading/releases)
-2. Extract and copy `custom_components/battery_energy_trading` to your Home Assistant `custom_components` directory
-3. Restart Home Assistant
+1. **Ensure Nord Pool integration is installed first**
+2. Download the [latest release](https://github.com/Tsopic/battery_energy_trading/releases)
+3. Extract and copy `custom_components/battery_energy_trading` to your Home Assistant `custom_components` directory
+4. Restart Home Assistant
 
 ## ⚙️ Configuration
 
@@ -67,6 +84,16 @@ A comprehensive Home Assistant integration for intelligent battery management an
 1. Go to `Settings` → `Devices & Services`
 2. Click `+ Add Integration`
 3. Search for `Battery Energy Trading`
+4. **If Nord Pool is not detected**, setup will be blocked with an error message - install Nord Pool first
+
+**🎉 Automatic Sungrow Detection:**
+If you have the Sungrow integration installed, the setup will:
+- **Automatically detect** your Sungrow inverter model (SH5.0RT, SH10RT, etc.)
+- **Auto-configure** charge/discharge rates based on inverter specifications
+- **Pre-fill** battery level, capacity, and solar power entities
+- Just confirm the detected settings and you're done!
+
+**Manual Configuration:**
 4. Configure the required entities:
    - **Nord Pool Entity** - Your electricity price sensor (e.g., `sensor.nordpool_kwh_ee_eur_3_10_022`)
    - **Battery Level Entity** - Battery charge percentage (e.g., `sensor.battery_level`)
@@ -75,11 +102,11 @@ A comprehensive Home Assistant integration for intelligent battery management an
 
 ### Configuration Parameters
 
-After setup, configure the following parameters via the dashboard:
+After setup, configure the following parameters via the dashboard or pre-built dashboard:
 
 | Parameter | Description | Default | Range |
 |-----------|-------------|---------|-------|
-| Forced Discharge Hours | Number of highest-price hours to sell | 2 | 0-8 hours |
+| Forced Discharge Hours | Max hours to discharge (0=unlimited) | 2 | 0-24 hours |
 | Minimum Export Price | Minimum price to allow export | 0.0125 EUR | -0.3 to 0.1 EUR |
 | Minimum Forced Sell Price | Minimum price for forced discharge | 0.3 EUR | 0 to 0.5 EUR |
 | Maximum Force Charge Price | Maximum price for forced charging | 0.0 EUR | -0.5 to 0.2 EUR |
@@ -87,6 +114,8 @@ After setup, configure the following parameters via the dashboard:
 | Force Charge Target | Target battery % for force charging | 70% | 0-100% |
 | Minimum Battery Level | Minimum battery % for discharge | 25% | 10-50% |
 | Minimum Solar Threshold | Solar power to override battery limits | 500 W | 0-5000 W |
+| Battery Discharge Rate | Max discharge power (auto-detected) | 5 kW | 1-20 kW |
+| Battery Charge Rate | Max charge power (auto-detected) | 5 kW | 1-20 kW |
 
 ## 📱 Dashboard
 
@@ -114,7 +143,9 @@ The integration provides the following entities for your dashboard:
 - **Solar Power Available** - Sufficient solar production (>500W)
 
 ### Configuration (Number Inputs)
-- **Forced Discharge Hours** - How many slots to sell (0-8, default: 2)
+- **Forced Discharge Hours** - Max hours to discharge (0-24, default: 2)
+  - **0 = Unlimited**: Sell during ALL profitable peak slots
+  - **1-24**: Limit discharge to X hours at highest prices
 - **Minimum Export Price** - Minimum to allow export (default: €0.0125)
 - **Minimum Forced Sell Price** - Minimum for discharge (default: €0.30)
 - **Maximum Force Charge Price** - Maximum for charging (default: €0.00)
@@ -122,15 +153,42 @@ The integration provides the following entities for your dashboard:
 - **Force Charge Target** - Target battery % (0-100%, default: 70%)
 - **Minimum Battery Level** - Min % for discharge (10-50%, default: 25%)
 - **Minimum Solar Threshold** - Solar power override (0-5000W, default: 500W)
+- **Battery Discharge Rate** - Max discharge power (1-20kW, auto-detected for Sungrow)
+- **Battery Charge Rate** - Max charge power (1-20kW, auto-detected for Sungrow)
 
 ## 🔧 Integration with Existing Systems
 
 This integration is designed to work with:
 
 - **Nord Pool Integration** - Or any electricity price sensor
-- **Battery Systems** - SolarEdge, Huawei, Tesla, etc.
+- **Battery Systems** - SolarEdge, Huawei, Tesla, Sungrow, etc.
 - **Solar Inverters** - Any system providing power production data
 - **Home Assistant Automations** - Full automation support
+
+### 🌟 Sungrow Inverter Integration
+
+**Automatic setup for [Sungrow SHx Modbus Integration](https://github.com/mkaiser/Sungrow-SHx-Inverter-Modbus-Home-Assistant/)!**
+
+**✨ One-Click Auto-Configuration**
+
+If you have the Sungrow integration already installed:
+
+1. Add Battery Energy Trading integration
+2. **Auto-detection** will identify:
+   - Your inverter model (SH5.0RT, SH6.0RT, SH8.0RT, SH10RT, etc.)
+   - Optimal charge/discharge rates for your specific model
+   - Battery level, capacity (read dynamically), and solar power sensors
+3. Click **"Use Auto-Detection"** - that's it!
+
+The integration **dynamically reads your actual battery capacity** from the Sungrow system, so it works with any Sungrow-compatible battery configuration.
+
+**Manual Sync Service:**
+```yaml
+# Manually re-sync Sungrow parameters if you upgrade your inverter
+service: battery_energy_trading.sync_sungrow_parameters
+```
+
+**[📖 Full Sungrow Integration Guide](docs/integrations/sungrow.md)** - Complete setup with automation examples
 
 ### Example Automations
 
@@ -188,17 +246,49 @@ automation:
           message: "High price period - selling energy now!"
 ```
 
-## 🎨 Example Dashboard Card
+## 🎨 Pre-Built Dashboard
+
+A **complete dashboard** is included in the `dashboards/` directory!
+
+### Quick Setup
+
+1. Go to **Settings** → **Dashboards**
+2. Click **+ ADD DASHBOARD**
+3. Choose **New dashboard from scratch**
+4. Click **✏️ Edit** → **⋮** → **Raw configuration editor**
+5. Copy contents from `dashboards/battery_energy_trading_dashboard.yaml`
+6. Paste and **SAVE**
+
+### Dashboard Features
+
+The pre-built dashboard includes:
+
+📊 **11 Organized Sections:**
+- Current operation status
+- Operation mode controls (switches)
+- Discharge schedule with revenue estimates
+- Charging schedule with cost estimates
+- Arbitrage opportunities
+- Price threshold configuration
+- Battery protection settings
+- Charging configuration
+- Solar override settings
+- Discharge configuration
+- Battery health monitoring
+
+**See [`dashboards/README.md`](dashboards/README.md) for full documentation and customization guide.**
+
+### Preview
 
 ```yaml
+# Quick preview card
 type: entities
 title: Battery Energy Trading
 entities:
-  - entity: sensor.battery_energy_trading_arbitrage_opportunities
+  - entity: sensor.battery_energy_trading_discharge_time_slots
   - entity: binary_sensor.battery_energy_trading_forced_discharge
-  - entity: binary_sensor.battery_energy_trading_export_profitable
+  - entity: switch.battery_energy_trading_enable_forced_discharge
   - entity: number.battery_energy_trading_min_forced_sell_price
-  - entity: number.battery_energy_trading_forced_discharge_hours
 ```
 
 ## 📈 How It Works
@@ -219,27 +309,14 @@ entities:
 - Automatically enables export during profitable periods
 - Prevents selling at a loss
 
-## 🛠️ Development Status
+## 📚 Documentation
 
-**Version 0.1.0** - Initial Release
-
-### Current Features
-- ✅ Configuration flow
-- ✅ Nord Pool integration
-- ✅ Battery monitoring
-- ✅ Solar power integration
-- ✅ Arbitrage detection
-- ✅ Binary sensors for automation triggers
-- ✅ Number inputs for configuration
-
-### Roadmap
-- 🔄 Complete sensor implementations
-- 🔄 Advanced arbitrage algorithms
-- 🔄 Historical analytics
-- 🔄 Cost/revenue tracking
-- 🔄 Multi-day forecasting
-- 🔄 Machine learning price predictions
-- 🔄 Custom dashboard cards
+- **[Complete Documentation](docs/README.md)** - Full documentation index
+- **[Sungrow Integration Guide](docs/integrations/sungrow.md)** - Sungrow inverter setup and automations
+- **[Dashboard Guide](dashboards/README.md)** - Pre-built dashboard setup
+- **[Development Guide](CLAUDE.md)** - Architecture and contributing
+- **[Testing Guide](docs/development/testing.md)** - Running and writing tests
+- **[Changelog](CHANGELOG.md)** - Version history
 
 ## 🤝 Contributing
 

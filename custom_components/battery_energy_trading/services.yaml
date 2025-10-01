@@ -1,0 +1,29 @@
+# Services for Battery Energy Trading
+
+sync_sungrow_parameters:
+  name: Sync Sungrow Parameters
+  description: Automatically detect and sync charge/discharge rates from Sungrow inverter
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: Optional config entry ID (auto-detects if not specified)
+      required: false
+      example: "abc123def456"
+      selector:
+        text:
+
+create_dashboard:
+  name: Create Dashboard
+  description: Automatically creates a pre-configured dashboard for Battery Energy Trading
+  fields:
+    dashboard_title:
+      name: Dashboard Title
+      description: Title for the dashboard
+      default: "Battery Energy Trading"
+      example: "Energy Management"
+      selector:
+        text:
+
+reload_configuration:
+  name: Reload Configuration
+  description: Reloads the integration configuration and recalculates all schedules

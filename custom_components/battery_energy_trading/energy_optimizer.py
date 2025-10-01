@@ -15,6 +15,22 @@ class EnergyOptimizer:
         """Initialize the optimizer."""
         self._battery_discharge_rate = 5.0  # kW default discharge rate
 
+    @staticmethod
+    def _calculate_slot_duration(raw_prices: list[dict[str, Any]]) -> float:
+        """Calculate slot duration from price data.
+
+        Args:
+            raw_prices: List of price data with 'start', 'end', 'value' keys
+
+        Returns:
+            Slot duration in hours (0.25 for 15-min, 1.0 for hourly)
+        """
+        if len(raw_prices) > 1:
+            return (
+                raw_prices[1]["start"] - raw_prices[0]["start"]
+            ).total_seconds() / 3600.0
+        return 0.25  # Default to 15 minutes
+
     def select_discharge_slots(
         self,
         raw_prices: list[dict[str, Any]],
@@ -22,7 +38,7 @@ class EnergyOptimizer:
         battery_capacity: float,
         battery_level: float,
         discharge_rate: float = 5.0,
-        max_slots: int | None = None,
+        max_hours: float | None = None,
     ) -> list[dict[str, Any]]:
         """
         Intelligently select discharge time slots based on price and battery capacity.
@@ -33,7 +49,7 @@ class EnergyOptimizer:
             battery_capacity: Total battery capacity in kWh
             battery_level: Current battery level in percentage (0-100)
             discharge_rate: Battery discharge rate in kW (default 5.0 kW)
-            max_slots: Maximum number of slots to select (optional)
+            max_hours: Maximum hours to discharge (None = unlimited, 0 = use battery capacity limit only)
 
         Returns:
             List of selected discharge slots with calculated energy amounts
@@ -50,12 +66,7 @@ class EnergyOptimizer:
             return []
 
         # Determine slot duration (15min or 60min)
-        if len(raw_prices) > 1:
-            slot_duration_hours = (
-                raw_prices[1]["start"] - raw_prices[0]["start"]
-            ).total_seconds() / 3600.0
-        else:
-            slot_duration_hours = 0.25  # Default to 15 minutes
+        slot_duration_hours = self._calculate_slot_duration(raw_prices)
 
         # Energy per slot based on discharge rate and duration
         energy_per_slot = discharge_rate * slot_duration_hours  # kWh
@@ -86,10 +97,12 @@ class EnergyOptimizer:
         # Sort by price (highest first)
         sorted_slots = sorted(profitable_slots, key=lambda x: x["value"], reverse=True)
 
-        # Limit by battery capacity or max_slots parameter
-        if max_slots:
-            num_slots = min(len(sorted_slots), max_discharge_slots, max_slots)
+        # Calculate max slots from max_hours if specified
+        if max_hours is not None and max_hours > 0:
+            max_slots_from_hours = int(max_hours / slot_duration_hours)
+            num_slots = min(len(sorted_slots), max_discharge_slots, max_slots_from_hours)
         else:
+            # No hour limit - use battery capacity as the only limit
             num_slots = min(len(sorted_slots), max_discharge_slots)
 
         selected_slots = []
@@ -161,12 +174,7 @@ class EnergyOptimizer:
             return []
 
         # Determine slot duration
-        if len(raw_prices) > 1:
-            slot_duration_hours = (
-                raw_prices[1]["start"] - raw_prices[0]["start"]
-            ).total_seconds() / 3600.0
-        else:
-            slot_duration_hours = 0.25
+        slot_duration_hours = self._calculate_slot_duration(raw_prices)
 
         # Energy per slot
         energy_per_slot = charge_rate * slot_duration_hours
@@ -252,9 +260,7 @@ class EnergyOptimizer:
         opportunities = []
 
         # Determine slot duration
-        slot_duration_hours = (
-            raw_prices[1]["start"] - raw_prices[0]["start"]
-        ).total_seconds() / 3600.0
+        slot_duration_hours = self._calculate_slot_duration(raw_prices)
 
         # Energy per slot
         charge_energy_per_slot = charge_rate * slot_duration_hours

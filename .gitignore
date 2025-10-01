@@ -67,3 +67,20 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Logs
+logs/
+*.log
+
+# Test artifacts
+TEST_RESULTS.md
+RUN_TESTS.md
+.pytest_cache/
+htmlcov/
+
+# Temporary documentation
+HACS_SETUP.md
+
+# Claude Code
+.claude/
+logs/

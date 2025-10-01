@@ -24,9 +24,15 @@ from .const import (
     NUMBER_MIN_FORCED_SELL_PRICE,
     NUMBER_MAX_FORCE_CHARGE_PRICE,
     NUMBER_FORCE_CHARGE_TARGET,
+    NUMBER_FORCED_DISCHARGE_HOURS,
+    NUMBER_DISCHARGE_RATE_KW,
+    NUMBER_CHARGE_RATE_KW,
     DEFAULT_MIN_FORCED_SELL_PRICE,
     DEFAULT_MAX_FORCE_CHARGE_PRICE,
     DEFAULT_FORCE_CHARGE_TARGET,
+    DEFAULT_FORCED_DISCHARGE_HOURS,
+    DEFAULT_DISCHARGE_RATE_KW,
+    DEFAULT_CHARGE_RATE_KW,
 )
 from .energy_optimizer import EnergyOptimizer
 
@@ -268,13 +274,23 @@ class DischargeHoursSensor(BatteryTradingSensor):
         min_sell_price = self._get_number_entity_value(
             NUMBER_MIN_FORCED_SELL_PRICE, DEFAULT_MIN_FORCED_SELL_PRICE
         )
+        discharge_rate = self._get_number_entity_value(
+            NUMBER_DISCHARGE_RATE_KW, DEFAULT_DISCHARGE_RATE_KW
+        )
+        forced_discharge_hours = self._get_number_entity_value(
+            NUMBER_FORCED_DISCHARGE_HOURS, DEFAULT_FORCED_DISCHARGE_HOURS
+        )
+
+        # 0 = unlimited (use battery capacity limit only)
+        max_hours = None if forced_discharge_hours == 0 else forced_discharge_hours
 
         return self._optimizer.select_discharge_slots(
             raw_today,
             min_sell_price,
             battery_capacity,
             battery_level,
-            discharge_rate=5.0,  # 5kW discharge rate
+            discharge_rate=discharge_rate,
+            max_hours=max_hours,
         )
 
 
