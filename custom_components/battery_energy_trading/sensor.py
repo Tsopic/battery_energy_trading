@@ -85,7 +85,7 @@ class BatteryTradingSensor(SensorEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.5.3",
+            sw_version="0.6.1",
         )
 
     async def async_added_to_hass(self) -> None:
@@ -393,6 +393,9 @@ class ChargingHoursSensor(BatteryTradingSensor):
         target_level = self._get_number_entity_value(
             NUMBER_FORCE_CHARGE_TARGET, DEFAULT_FORCE_CHARGE_TARGET
         )
+        charge_rate = self._get_number_entity_value(
+            NUMBER_CHARGE_RATE_KW, DEFAULT_CHARGE_RATE_KW
+        )
 
         return self._optimizer.select_charging_slots(
             raw_today,
@@ -400,5 +403,5 @@ class ChargingHoursSensor(BatteryTradingSensor):
             battery_capacity,
             battery_level,
             target_level,
-            charge_rate=5.0,  # 5kW charge rate
+            charge_rate=charge_rate,
         )
