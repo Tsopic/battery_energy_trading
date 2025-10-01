@@ -7,6 +7,7 @@ from datetime import datetime
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
@@ -89,6 +90,13 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
         self._tracked_entities = tracked_entities
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{sensor_type}"
         self._attr_has_entity_name = True
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Battery Energy Trading",
+            manufacturer="Battery Energy Trading",
+            model="Energy Optimizer",
+            sw_version="0.5.3",
+        )
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""

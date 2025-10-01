@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -77,6 +78,13 @@ class BatteryTradingSwitch(SwitchEntity, RestoreEntity):
         self._description = description
         self._attr_is_on = default_state
         self._attr_has_entity_name = True
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Battery Energy Trading",
+            manufacturer="Battery Energy Trading",
+            model="Energy Optimizer",
+            sw_version="0.5.3",
+        )
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""

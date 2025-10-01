@@ -6,7 +6,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity import Entity, DeviceInfo
 
 from .const import DOMAIN
 
@@ -28,6 +28,13 @@ class BatteryTradingBaseEntity(Entity):
         self._entity_type = entity_type
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{entity_type}"
         self._attr_has_entity_name = True
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Battery Energy Trading",
+            manufacturer="Battery Energy Trading",
+            model="Energy Optimizer",
+            sw_version="0.5.3",
+        )
 
     def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
         """

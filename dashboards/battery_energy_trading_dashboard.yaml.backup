@@ -1,0 +1,301 @@
+# Battery Energy Trading Dashboard
+# Copy this entire file and paste it when creating a new dashboard in Home Assistant
+#
+# Note: ApexCharts card requires the custom:apexcharts-card to be installed via HACS
+# If you don't have it installed, the price chart won't display but other cards will work
+
+title: Battery Energy Trading
+path: battery-energy-trading
+icon: mdi:battery-charging
+cards:
+  # Nord Pool Price Chart - Today vs Tomorrow
+  - type: custom:apexcharts-card
+    experimental:
+      color_threshold: true
+    graph_span: 24h
+    header:
+      title: "⚡ Nord Pool - Today vs Tomorrow"
+      show: true
+    span:
+      start: day
+      offset: +1d
+    series:
+      - entity: sensor.nordpool_kwh_ee_eur_3_10_022
+        name: Tomorrow
+        type: column
+        color: '#03a9f4'
+        data_generator: |
+          return entity.attributes.raw_tomorrow.map((start, index) => {
+            return [new Date(start["start"]).getTime(), entity.attributes.raw_tomorrow[index]["value"] * 1000];
+          });
+      - entity: sensor.nordpool_kwh_ee_eur_3_10_022
+        name: Today
+        offset: '-1d'
+        type: column
+        color: '#ff9800'
+        data_generator: |
+          return entity.attributes.raw_today.map((start, index) => {
+            return [new Date(start["start"]).getTime(), entity.attributes.raw_today[index]["value"] * 1000];
+          });
+
+  # Main Status Card
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: |
+          # ⚡ Battery Energy Trading
+          Smart battery management and solar energy optimization
+
+      # Current Operation Status
+      - type: entities
+        title: "🔋 Current Status"
+        state_color: true
+        entities:
+          - entity: binary_sensor.battery_energy_trading_forced_discharge
+            name: "Discharging Now"
+            icon: mdi:battery-arrow-up
+          - entity: binary_sensor.battery_energy_trading_cheapest_hours
+            name: "Charging Now"
+            icon: mdi:battery-arrow-down
+          - entity: binary_sensor.battery_energy_trading_export_profitable
+            name: "Export Profitable"
+            icon: mdi:transmission-tower-export
+          - entity: binary_sensor.battery_energy_trading_solar_available
+            name: "Solar Active"
+            icon: mdi:solar-power
+          - entity: sensor.nordpool_kwh_ee_eur_3_10_022
+            name: "Current Price"
+            icon: mdi:currency-eur
+
+  # Main Controls
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 🎛️ Operation Modes"
+
+      - type: entities
+        title: "Enable/Disable Features"
+        state_color: true
+        entities:
+          - entity: switch.battery_energy_trading_enable_forced_discharge
+            name: "Enable Discharge at Peak Prices"
+            icon: mdi:battery-arrow-up-outline
+          - entity: switch.battery_energy_trading_enable_forced_charging
+            name: "Enable Charging at Low Prices"
+            icon: mdi:battery-arrow-down-outline
+          - entity: switch.battery_energy_trading_enable_export_management
+            name: "Enable Smart Export Control"
+            icon: mdi:transmission-tower
+
+  # Discharge Slots
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 📤 Discharge Schedule (Selling)"
+
+      - type: glance
+        title: "Today's Discharge Slots"
+        state_color: false
+        entities:
+          - entity: sensor.battery_energy_trading_discharge_time_slots
+            name: "Selected Slots"
+        columns: 1
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_discharge_time_slots
+        attribute: slot_count
+        name: "Number of Slots"
+        icon: mdi:counter
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_discharge_time_slots
+        attribute: total_energy_kwh
+        name: "Total Energy"
+        suffix: " kWh"
+        icon: mdi:lightning-bolt
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_discharge_time_slots
+        attribute: estimated_revenue_eur
+        name: "Est. Revenue"
+        suffix: " EUR"
+        icon: mdi:currency-eur
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_discharge_time_slots
+        attribute: average_price
+        name: "Avg Price"
+        suffix: " EUR/kWh"
+        icon: mdi:cash
+
+  # Charging Slots
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 📥 Charging Schedule (Buying)"
+
+      - type: glance
+        title: "Today's Charging Slots"
+        state_color: false
+        entities:
+          - entity: sensor.battery_energy_trading_charging_time_slots
+            name: "Selected Slots"
+        columns: 1
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_charging_time_slots
+        attribute: slot_count
+        name: "Number of Slots"
+        icon: mdi:counter
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_charging_time_slots
+        attribute: total_energy_kwh
+        name: "Total Energy"
+        suffix: " kWh"
+        icon: mdi:lightning-bolt
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_charging_time_slots
+        attribute: estimated_cost_eur
+        name: "Est. Cost"
+        suffix: " EUR"
+        icon: mdi:currency-eur
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_charging_time_slots
+        attribute: average_price
+        name: "Avg Price"
+        suffix: " EUR/kWh"
+        icon: mdi:cash
+
+  # Arbitrage Opportunities
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 💰 Arbitrage Opportunities"
+
+      - type: glance
+        title: "Best Trading Opportunity"
+        state_color: false
+        entities:
+          - entity: sensor.battery_energy_trading_arbitrage_opportunities
+            name: "Opportunity"
+        columns: 1
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_arbitrage_opportunities
+        attribute: best_profit
+        name: "Best Profit"
+        suffix: " EUR"
+        icon: mdi:cash-plus
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_arbitrage_opportunities
+        attribute: best_roi
+        name: "ROI"
+        suffix: "%"
+        icon: mdi:percent
+
+      - type: attribute
+        entity: sensor.battery_energy_trading_arbitrage_opportunities
+        attribute: opportunities_count
+        name: "Opportunities Found"
+        icon: mdi:chart-line
+
+  # Price Configuration
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 💵 Price Thresholds"
+
+      - type: entities
+        title: "Configure Price Limits"
+        entities:
+          - entity: number.battery_energy_trading_min_forced_sell_price
+            name: "Min Sell Price"
+            icon: mdi:currency-eur
+          - entity: number.battery_energy_trading_min_export_price
+            name: "Min Export Price"
+            icon: mdi:currency-eur
+          - entity: number.battery_energy_trading_max_force_charge_price
+            name: "Max Buy Price"
+            icon: mdi:currency-eur
+
+  # Battery Configuration
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 🔋 Battery Settings"
+
+      - type: entities
+        title: "Battery Protection"
+        entities:
+          - entity: number.battery_energy_trading_min_battery_level
+            name: "Min Battery Level"
+            icon: mdi:battery-low
+          - entity: number.battery_energy_trading_discharge_rate_kw
+            name: "Discharge Rate"
+            icon: mdi:battery-arrow-up
+          - entity: number.battery_energy_trading_charge_rate_kw
+            name: "Charge Rate"
+            icon: mdi:battery-arrow-down
+
+  # Charging Configuration
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## ⚙️ Charging Settings"
+
+      - type: entities
+        title: "Charge Configuration"
+        entities:
+          - entity: number.battery_energy_trading_force_charge_target
+            name: "Target Charge Level"
+            icon: mdi:battery-charging
+          - entity: number.battery_energy_trading_force_charging_hours
+            name: "Charging Hours"
+            icon: mdi:clock-outline
+
+  # Solar Configuration
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## ☀️ Solar Settings"
+
+      - type: entities
+        title: "Solar Override"
+        entities:
+          - entity: number.battery_energy_trading_min_solar_threshold
+            name: "Min Solar Power"
+            icon: mdi:solar-power
+
+  # Discharge Configuration
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 📊 Discharge Settings"
+
+      - type: entities
+        title: "Discharge Configuration"
+        entities:
+          - entity: number.battery_energy_trading_forced_discharge_hours
+            name: "Discharge Hours"
+            icon: mdi:clock-outline
+
+  # Battery Status
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: "## 📈 Battery Monitoring"
+
+      - type: entities
+        title: "Battery Indicators"
+        state_color: true
+        entities:
+          - entity: binary_sensor.battery_energy_trading_battery_low
+            name: "Battery Below 15%"
+            icon: mdi:battery-alert
+          - entity: binary_sensor.battery_energy_trading_low_price
+            name: "Low Price Mode"
+            icon: mdi:currency-eur-off

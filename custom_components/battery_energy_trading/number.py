@@ -6,6 +6,7 @@ import logging
 from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -189,6 +190,13 @@ class BatteryTradingNumber(NumberEntity):
         self._attr_native_unit_of_measurement = unit
         self._attr_icon = icon
         self._attr_has_entity_name = True
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Battery Energy Trading",
+            manufacturer="Battery Energy Trading",
+            model="Energy Optimizer",
+            sw_version="0.5.3",
+        )
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
