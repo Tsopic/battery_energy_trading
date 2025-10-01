@@ -18,6 +18,8 @@ from .const import (
     NUMBER_FORCE_CHARGE_TARGET,
     NUMBER_MIN_BATTERY_LEVEL,
     NUMBER_MIN_SOLAR_THRESHOLD,
+    NUMBER_DISCHARGE_RATE,
+    NUMBER_CHARGE_RATE,
     DEFAULT_MIN_EXPORT_PRICE,
     DEFAULT_MIN_FORCED_SELL_PRICE,
     DEFAULT_MAX_FORCE_CHARGE_PRICE,
@@ -26,6 +28,8 @@ from .const import (
     DEFAULT_FORCE_CHARGE_TARGET,
     DEFAULT_MIN_BATTERY_LEVEL,
     DEFAULT_MIN_SOLAR_THRESHOLD,
+    DEFAULT_DISCHARGE_RATE,
+    DEFAULT_CHARGE_RATE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -125,6 +129,28 @@ async def async_setup_entry(
             DEFAULT_MIN_SOLAR_THRESHOLD,
             "W",
             "mdi:solar-power",
+        ),
+        BatteryTradingNumber(
+            entry,
+            NUMBER_DISCHARGE_RATE,
+            "Battery Discharge Rate",
+            1.0,
+            20.0,
+            0.5,
+            DEFAULT_DISCHARGE_RATE,
+            "kW",
+            "mdi:battery-arrow-up",
+        ),
+        BatteryTradingNumber(
+            entry,
+            NUMBER_CHARGE_RATE,
+            "Battery Charge Rate",
+            1.0,
+            20.0,
+            0.5,
+            DEFAULT_CHARGE_RATE,
+            "kW",
+            "mdi:battery-arrow-down",
         ),
     ]
 
