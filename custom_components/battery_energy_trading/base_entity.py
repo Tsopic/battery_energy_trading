@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity, DeviceInfo
 
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class BatteryTradingBaseEntity(Entity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.7.0",
+            sw_version=VERSION,
         )
 
     def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:

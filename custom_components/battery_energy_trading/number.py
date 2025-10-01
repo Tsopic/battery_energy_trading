@@ -11,6 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     DOMAIN,
+    VERSION,
     NUMBER_FORCED_DISCHARGE_HOURS,
     NUMBER_MIN_EXPORT_PRICE,
     NUMBER_MIN_FORCED_SELL_PRICE,
@@ -183,6 +184,7 @@ class BatteryTradingNumber(NumberEntity):
         self._number_type = number_type
         self._attr_name = name
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{number_type}"
+        self._attr_suggested_object_id = f"{DOMAIN}_{number_type}"
         self._attr_native_min_value = min_value
         self._attr_native_max_value = max_value
         self._attr_native_step = step
@@ -195,7 +197,7 @@ class BatteryTradingNumber(NumberEntity):
             name="Battery Energy Trading",
             manufacturer="Battery Energy Trading",
             model="Energy Optimizer",
-            sw_version="0.7.0",
+            sw_version=VERSION,
         )
 
     async def async_set_native_value(self, value: float) -> None:

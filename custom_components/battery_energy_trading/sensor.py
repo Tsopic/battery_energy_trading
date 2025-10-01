@@ -85,6 +85,7 @@ class BatteryTradingSensor(SensorEntity):
         self._sensor_type = sensor_type
         self._tracked_entities = tracked_entities or [nordpool_entity]
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{sensor_type}"
+        self._attr_suggested_object_id = f"{DOMAIN}_{sensor_type}"
         self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
