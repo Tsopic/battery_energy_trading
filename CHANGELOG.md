@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2025-10-01
+
+### Changes
+
+- feat: add visual timeslot overlay to Nord Pool price chart
+- fix: add predictable entity IDs and fix version sync (v0.8.1)
+
+
 ## [0.10.1] - 2025-10-01
 
 ### Fixed
