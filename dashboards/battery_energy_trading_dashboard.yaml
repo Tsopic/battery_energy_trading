@@ -79,7 +79,7 @@ cards:
             return [new Date(start["start"]).getTime(), entity.attributes.raw_today[index]["value"] * 1000];
           });
       # Discharge slots overlay (red highlights)
-      - entity: sensor.battery_energy_trading_discharge_time_slots
+      - entity: sensor.battery_energy_trading_discharge_hours
         name: Discharge Slots
         type: area
         color: 'rgba(255, 82, 82, 0.3)'
@@ -104,7 +104,7 @@ cards:
             return [time, inSlot ? price.value * 1000 : null];
           }).filter(point => point[1] !== null);
       # Charging slots overlay (green highlights)
-      - entity: sensor.battery_energy_trading_charging_time_slots
+      - entity: sensor.battery_energy_trading_charging_hours
         name: Charging Slots
         type: area
         color: 'rgba(76, 175, 80, 0.3)'
@@ -167,8 +167,8 @@ cards:
       - type: markdown
         content: |
           ### 🔴 Discharge Periods (Selling to Grid)
-          {% if state_attr('sensor.battery_energy_trading_discharge_time_slots', 'slots') %}
-          {% for slot in state_attr('sensor.battery_energy_trading_discharge_time_slots', 'slots') %}
+          {% if state_attr('sensor.battery_energy_trading_discharge_hours', 'slots') %}
+          {% for slot in state_attr('sensor.battery_energy_trading_discharge_hours', 'slots') %}
           - **{{ as_timestamp(slot.start) | timestamp_custom('%H:%M', true) }} - {{ as_timestamp(slot.end) | timestamp_custom('%H:%M', true) }}** | {{ slot.energy_kwh | round(1) }} kWh @ €{{ slot.price | round(3) }}/kWh (€{{ slot.revenue | round(2) }}){% if slot.battery_before is defined %} | 🔋 {{ slot.battery_before | round(1) }} → {{ slot.battery_after | round(1) }} kWh{% endif %}
           {% endfor %}
           {% else %}
@@ -176,8 +176,8 @@ cards:
           {% endif %}
 
           ### 🟢 Charging Periods (Buying from Grid)
-          {% if state_attr('sensor.battery_energy_trading_charging_time_slots', 'slots') %}
-          {% for slot in state_attr('sensor.battery_energy_trading_charging_time_slots', 'slots') %}
+          {% if state_attr('sensor.battery_energy_trading_charging_hours', 'slots') %}
+          {% for slot in state_attr('sensor.battery_energy_trading_charging_hours', 'slots') %}
           - **{{ as_timestamp(slot.start) | timestamp_custom('%H:%M', true) }} - {{ as_timestamp(slot.end) | timestamp_custom('%H:%M', true) }}** | {{ slot.energy_kwh | round(1) }} kWh @ €{{ slot.price | round(3) }}/kWh (€{{ slot.cost | round(2) }})
           {% endfor %}
           {% else %}
@@ -185,9 +185,9 @@ cards:
           {% endif %}
 
           ### 📊 Daily Summary
-          - **Total Discharge**: {{ state_attr('sensor.battery_energy_trading_discharge_time_slots', 'total_energy_kwh') | round(1) }} kWh → €{{ state_attr('sensor.battery_energy_trading_discharge_time_slots', 'estimated_revenue_eur') | round(2) }}
-          - **Total Charge**: {{ state_attr('sensor.battery_energy_trading_charging_time_slots', 'total_energy_kwh') | round(1) }} kWh → €{{ state_attr('sensor.battery_energy_trading_charging_time_slots', 'estimated_cost_eur') | round(2) }}
-          - **Net Trading**: €{{ (state_attr('sensor.battery_energy_trading_discharge_time_slots', 'estimated_revenue_eur') | float(0) - state_attr('sensor.battery_energy_trading_charging_time_slots', 'estimated_cost_eur') | float(0)) | round(2) }}
+          - **Total Discharge**: {{ state_attr('sensor.battery_energy_trading_discharge_hours', 'total_energy_kwh') | round(1) }} kWh → €{{ state_attr('sensor.battery_energy_trading_discharge_hours', 'estimated_revenue_eur') | round(2) }}
+          - **Total Charge**: {{ state_attr('sensor.battery_energy_trading_charging_hours', 'total_energy_kwh') | round(1) }} kWh → €{{ state_attr('sensor.battery_energy_trading_charging_hours', 'estimated_cost_eur') | round(2) }}
+          - **Net Trading**: €{{ (state_attr('sensor.battery_energy_trading_discharge_hours', 'estimated_revenue_eur') | float(0) - state_attr('sensor.battery_energy_trading_charging_hours', 'estimated_cost_eur') | float(0)) | round(2) }}
 
   # Main Controls
   - type: vertical-stack
@@ -228,28 +228,28 @@ cards:
 
       - type: entities
         entities:
-          - entity: sensor.battery_energy_trading_discharge_time_slots
+          - entity: sensor.battery_energy_trading_discharge_hours
             name: "Discharge Slots"
             icon: mdi:battery-arrow-up
           - type: attribute
-            entity: sensor.battery_energy_trading_discharge_time_slots
+            entity: sensor.battery_energy_trading_discharge_hours
             attribute: slot_count
             name: "Total Slots"
             icon: mdi:counter
           - type: attribute
-            entity: sensor.battery_energy_trading_discharge_time_slots
+            entity: sensor.battery_energy_trading_discharge_hours
             attribute: total_energy_kwh
             name: "Total Energy"
             suffix: " kWh"
             icon: mdi:lightning-bolt
           - type: attribute
-            entity: sensor.battery_energy_trading_discharge_time_slots
+            entity: sensor.battery_energy_trading_discharge_hours
             attribute: estimated_revenue_eur
             name: "Est. Revenue"
             suffix: " EUR"
             icon: mdi:currency-eur
           - type: attribute
-            entity: sensor.battery_energy_trading_discharge_time_slots
+            entity: sensor.battery_energy_trading_discharge_hours
             attribute: average_price
             name: "Avg Price"
             suffix: " EUR/kWh"
@@ -259,8 +259,8 @@ cards:
       - type: markdown
         content: |
           ### 🔴 Discharge Time Slots Detail
-          {% if state_attr('sensor.battery_energy_trading_discharge_time_slots', 'slots') %}
-          {% for slot in state_attr('sensor.battery_energy_trading_discharge_time_slots', 'slots') %}
+          {% if state_attr('sensor.battery_energy_trading_discharge_hours', 'slots') %}
+          {% for slot in state_attr('sensor.battery_energy_trading_discharge_hours', 'slots') %}
           - **{{ as_timestamp(slot.start) | timestamp_custom('%H:%M', true) }} - {{ as_timestamp(slot.end) | timestamp_custom('%H:%M', true) }}**: {{ slot.energy_kwh | round(1) }} kWh @ €{{ slot.price | round(3) }}/kWh → Revenue: **€{{ slot.revenue | round(2) }}**{% if slot.battery_before is defined %} | 🔋 {{ slot.battery_before | round(1) }} → {{ slot.battery_after | round(1) }} kWh{% endif %}
           {% endfor %}
           {% else %}
@@ -275,28 +275,28 @@ cards:
 
       - type: entities
         entities:
-          - entity: sensor.battery_energy_trading_charging_time_slots
+          - entity: sensor.battery_energy_trading_charging_hours
             name: "Charging Slots"
             icon: mdi:battery-arrow-down
           - type: attribute
-            entity: sensor.battery_energy_trading_charging_time_slots
+            entity: sensor.battery_energy_trading_charging_hours
             attribute: slot_count
             name: "Total Slots"
             icon: mdi:counter
           - type: attribute
-            entity: sensor.battery_energy_trading_charging_time_slots
+            entity: sensor.battery_energy_trading_charging_hours
             attribute: total_energy_kwh
             name: "Total Energy"
             suffix: " kWh"
             icon: mdi:lightning-bolt
           - type: attribute
-            entity: sensor.battery_energy_trading_charging_time_slots
+            entity: sensor.battery_energy_trading_charging_hours
             attribute: estimated_cost_eur
             name: "Est. Cost"
             suffix: " EUR"
             icon: mdi:currency-eur
           - type: attribute
-            entity: sensor.battery_energy_trading_charging_time_slots
+            entity: sensor.battery_energy_trading_charging_hours
             attribute: average_price
             name: "Avg Price"
             suffix: " EUR/kWh"
@@ -306,8 +306,8 @@ cards:
       - type: markdown
         content: |
           ### 🟢 Charging Time Slots Detail
-          {% if state_attr('sensor.battery_energy_trading_charging_time_slots', 'slots') %}
-          {% for slot in state_attr('sensor.battery_energy_trading_charging_time_slots', 'slots') %}
+          {% if state_attr('sensor.battery_energy_trading_charging_hours', 'slots') %}
+          {% for slot in state_attr('sensor.battery_energy_trading_charging_hours', 'slots') %}
           - **{{ as_timestamp(slot.start) | timestamp_custom('%H:%M', true) }} - {{ as_timestamp(slot.end) | timestamp_custom('%H:%M', true) }}**: {{ slot.energy_kwh | round(1) }} kWh @ €{{ slot.price | round(3) }}/kWh → Cost: **€{{ slot.cost | round(2) }}**
           {% endfor %}
           {% else %}
