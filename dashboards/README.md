@@ -8,26 +8,40 @@ This directory contains pre-built dashboard configurations for the Battery Energ
 
 A comprehensive dashboard showing all features and controls:
 
-- **Current Status** - Real-time operation indicators
+- **Nord Pool Price Chart** - Today vs Tomorrow electricity prices (requires ApexCharts Card)
+- **Current Status** - Real-time operation indicators with current price
 - **Operation Modes** - Enable/disable switches
 - **Discharge Schedule** - Selling slots and revenue
 - **Charging Schedule** - Buying slots and costs
 - **Arbitrage Opportunities** - Trading opportunities
 - **Configuration** - All settings in one place
 
+## 📋 Prerequisites
+
+The dashboard includes a Nord Pool price chart that requires the **ApexCharts Card** custom component:
+
+1. Install **ApexCharts Card** via HACS:
+   - Go to HACS → Frontend
+   - Search for "ApexCharts Card"
+   - Click Install
+   - Restart Home Assistant
+
+**Note:** If you don't install ApexCharts Card, the price chart won't display, but all other dashboard cards will work fine.
+
 ## 🚀 Installation
 
 ### Option 1: Manual Installation (Recommended)
 
-1. In Home Assistant, go to **Settings** → **Dashboards**
-2. Click **+ ADD DASHBOARD**
-3. Choose **New dashboard from scratch**
-4. Give it a name: "Battery Energy Trading"
-5. Click the **✏️ Edit** button (top right)
-6. Click **⋮** (three dots) → **Raw configuration editor**
-7. Copy the entire contents of `battery_energy_trading_dashboard.yaml`
-8. Paste into the editor
-9. Click **SAVE**
+1. **(Optional)** Install ApexCharts Card via HACS (see Prerequisites above)
+2. In Home Assistant, go to **Settings** → **Dashboards**
+3. Click **+ ADD DASHBOARD**
+4. Choose **New dashboard from scratch**
+5. Give it a name: "Battery Energy Trading"
+6. Click the **✏️ Edit** button (top right)
+7. Click **⋮** (three dots) → **Raw configuration editor**
+8. Copy the entire contents of `battery_energy_trading_dashboard.yaml`
+9. Paste into the editor
+10. Click **SAVE**
 
 ### Option 2: Copy to Lovelace Config
 
