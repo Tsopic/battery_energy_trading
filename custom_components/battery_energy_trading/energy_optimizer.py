@@ -81,25 +81,57 @@ class EnergyOptimizer:
         if not solar_forecast_data or not price_slots:
             return battery_levels
 
-        # Get hourly solar forecast from sensor attributes
-        # Forecast.Solar and Solcast provide "wh_hours" with hourly estimates
-        wh_hours = solar_forecast_data.get("wh_hours", {})
+        try:
+            # Get hourly solar forecast from sensor attributes
+            # Forecast.Solar and Solcast provide "wh_hours" with hourly estimates
+            wh_hours = solar_forecast_data.get("wh_hours", {})
 
-        current_level = current_battery_level
-        for slot in price_slots:
-            slot_start = slot["start"]
+            if not wh_hours:
+                _LOGGER.debug("Solar forecast has no wh_hours data, skipping solar estimation")
+                return battery_levels
 
-            # Get solar generation estimate for this hour (convert Wh to kWh)
-            hour_key = slot_start.strftime("%Y-%m-%d %H:%M:%S")
-            solar_kwh = wh_hours.get(hour_key, 0) / 1000.0
+            _LOGGER.debug("Solar forecast wh_hours has %d entries", len(wh_hours))
 
-            # Estimate battery charge from solar (simplified - assumes all solar goes to battery)
-            # In reality, household consumption would reduce this
-            if solar_kwh > 0:
-                level_increase = (solar_kwh / battery_capacity) * 100.0
-                current_level = min(100.0, current_level + level_increase)
+            current_level = current_battery_level
+            estimates_count = 0
 
-            battery_levels[slot_start] = current_level
+            for slot in price_slots:
+                slot_start = slot["start"]
+
+                # Try multiple datetime formats for compatibility
+                # Format 1: ISO format with timezone - "2025-10-01T14:00:00+02:00"
+                # Format 2: ISO format without timezone - "2025-10-01T14:00:00"
+                # Format 3: Custom format - "2025-10-01 14:00:00"
+                solar_kwh = 0.0
+                for fmt in [
+                    slot_start.isoformat(),
+                    slot_start.replace(tzinfo=None).isoformat() if slot_start.tzinfo else slot_start.isoformat(),
+                    slot_start.strftime("%Y-%m-%d %H:%M:%S"),
+                ]:
+                    if fmt in wh_hours:
+                        try:
+                            solar_kwh = float(wh_hours[fmt]) / 1000.0
+                            estimates_count += 1
+                            break
+                        except (ValueError, TypeError) as err:
+                            _LOGGER.debug("Failed to parse solar value for %s: %s", fmt, err)
+
+                # Estimate battery charge from solar (simplified - assumes all solar goes to battery)
+                # In reality, household consumption would reduce this
+                if solar_kwh > 0:
+                    level_increase = (solar_kwh / battery_capacity) * 100.0
+                    current_level = min(100.0, current_level + level_increase)
+
+                battery_levels[slot_start] = current_level
+
+            if estimates_count > 0:
+                _LOGGER.debug("Applied solar estimates for %d/%d slots", estimates_count, len(price_slots))
+            else:
+                _LOGGER.warning("No matching solar forecast entries found - check datetime format compatibility")
+
+        except Exception as err:
+            _LOGGER.error("Error estimating solar impact: %s", err, exc_info=True)
+            return {}
 
         return battery_levels
 
