@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2025-10-01
+
+### Changes
+
+- fix: add _KW suffix to discharge and charge rate constants
+- ci: add automatic release workflow on main branch commits
+- docs: add HACS quick add badge to installation section
+- chore: add HMB battery logo
+- docs: add development status warning to README
+- chore: remove temporary HACS_SETUP.md and update gitignore
+- docs: add HACS validation setup instructions
+- feat: major code quality improvements and Nord Pool validation
+- feat: add direct Sungrow power control automations
+- feat: add pre-built dashboard and Sungrow integration support
+- refactor: improve code quality and add configurable rates (v0.3.0)
+- feat: add automation switches and solar-first mode (v0.2.0)
+- feat: intelligent 15-minute slot selection for discharge/charge
+- feat: initial release of Battery Energy Trading integration
+
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
