@@ -87,123 +87,31 @@ cards:
             name: "Enable Smart Export Control"
             icon: mdi:transmission-tower
 
-  # Discharge Slots
-  - type: vertical-stack
-    cards:
-      - type: markdown
-        content: "## 📤 Discharge Schedule (Selling)"
+  # Discharge Schedule
+  - type: entities
+    title: "📤 Discharge Schedule (Selling)"
+    entities:
+      - entity: sensor.battery_energy_trading_discharge_time_slots
+        name: "Discharge Slots"
+        icon: mdi:battery-arrow-up
 
-      - type: glance
-        title: "Today's Discharge Slots"
-        state_color: false
-        entities:
-          - entity: sensor.battery_energy_trading_discharge_time_slots
-            name: "Selected Slots"
-        columns: 1
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_discharge_time_slots
-        attribute: slot_count
-        name: "Number of Slots"
-        icon: mdi:counter
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_discharge_time_slots
-        attribute: total_energy_kwh
-        name: "Total Energy"
-        suffix: " kWh"
-        icon: mdi:lightning-bolt
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_discharge_time_slots
-        attribute: estimated_revenue_eur
-        name: "Est. Revenue"
-        suffix: " EUR"
-        icon: mdi:currency-eur
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_discharge_time_slots
-        attribute: average_price
-        name: "Avg Price"
-        suffix: " EUR/kWh"
-        icon: mdi:cash
-
-  # Charging Slots
-  - type: vertical-stack
-    cards:
-      - type: markdown
-        content: "## 📥 Charging Schedule (Buying)"
-
-      - type: glance
-        title: "Today's Charging Slots"
-        state_color: false
-        entities:
-          - entity: sensor.battery_energy_trading_charging_time_slots
-            name: "Selected Slots"
-        columns: 1
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_charging_time_slots
-        attribute: slot_count
-        name: "Number of Slots"
-        icon: mdi:counter
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_charging_time_slots
-        attribute: total_energy_kwh
-        name: "Total Energy"
-        suffix: " kWh"
-        icon: mdi:lightning-bolt
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_charging_time_slots
-        attribute: estimated_cost_eur
-        name: "Est. Cost"
-        suffix: " EUR"
-        icon: mdi:currency-eur
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_charging_time_slots
-        attribute: average_price
-        name: "Avg Price"
-        suffix: " EUR/kWh"
-        icon: mdi:cash
+  # Charging Schedule
+  - type: entities
+    title: "📥 Charging Schedule (Buying)"
+    entities:
+      - entity: sensor.battery_energy_trading_charging_time_slots
+        name: "Charging Slots"
+        icon: mdi:battery-arrow-down
 
   # Arbitrage Opportunities
-  - type: vertical-stack
-    cards:
-      - type: markdown
-        content: "## 💰 Arbitrage Opportunities"
+  - type: entities
+    title: "💰 Arbitrage Opportunities"
+    entities:
+      - entity: sensor.battery_energy_trading_arbitrage_opportunities
+        name: "Trading Opportunities"
+        icon: mdi:cash-multiple
 
-      - type: glance
-        title: "Best Trading Opportunity"
-        state_color: false
-        entities:
-          - entity: sensor.battery_energy_trading_arbitrage_opportunities
-            name: "Opportunity"
-        columns: 1
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_arbitrage_opportunities
-        attribute: best_profit
-        name: "Best Profit"
-        suffix: " EUR"
-        icon: mdi:cash-plus
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_arbitrage_opportunities
-        attribute: best_roi
-        name: "ROI"
-        suffix: "%"
-        icon: mdi:percent
-
-      - type: attribute
-        entity: sensor.battery_energy_trading_arbitrage_opportunities
-        attribute: opportunities_count
-        name: "Opportunities Found"
-        icon: mdi:chart-line
-
-  # Price Configuration
+  # Price Thresholds
   - type: vertical-stack
     cards:
       - type: markdown
@@ -222,7 +130,7 @@ cards:
             name: "Max Buy Price"
             icon: mdi:currency-eur
 
-  # Battery Configuration
+  # Battery Settings
   - type: vertical-stack
     cards:
       - type: markdown
@@ -241,7 +149,7 @@ cards:
             name: "Charge Rate"
             icon: mdi:battery-arrow-down
 
-  # Charging Configuration
+  # Charging Settings
   - type: vertical-stack
     cards:
       - type: markdown
@@ -257,7 +165,7 @@ cards:
             name: "Charging Hours"
             icon: mdi:clock-outline
 
-  # Solar Configuration
+  # Solar Settings
   - type: vertical-stack
     cards:
       - type: markdown
@@ -270,7 +178,7 @@ cards:
             name: "Min Solar Power"
             icon: mdi:solar-power
 
-  # Discharge Configuration
+  # Discharge Settings
   - type: vertical-stack
     cards:
       - type: markdown
@@ -280,10 +188,10 @@ cards:
         title: "Discharge Configuration"
         entities:
           - entity: number.battery_energy_trading_forced_discharge_hours
-            name: "Discharge Hours"
+            name: "Discharge Hours (0=unlimited)"
             icon: mdi:clock-outline
 
-  # Battery Status
+  # Battery Monitoring
   - type: vertical-stack
     cards:
       - type: markdown
