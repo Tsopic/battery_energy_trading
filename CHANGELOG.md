@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2025-10-01
+
+### Changes
+
+- docs: add comprehensive Sungrow entity reference with modbus training data
+- feat: enhance dashboard with multi-day optimization switch and detailed metrics
+- docs: update release process to reflect automated workflow with repository_dispatch [skip ci]
+- fix: enable automatic release workflow triggering via repository_dispatch
+
+
 ## [0.8.0] - 2025-10-01
 
 ### Changes
