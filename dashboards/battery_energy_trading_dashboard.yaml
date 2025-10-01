@@ -2,7 +2,7 @@
 # Copy this entire file and paste it when creating a new dashboard in Home Assistant
 #
 # SETUP REQUIRED:
-# You must replace 'sensor.nordpool_kwh_se3_eur_3_10_025' with your actual Nord Pool entity ID
+# You must replace 'sensor.nordpool_kwh_ee_eur_3_10_022' with your actual Nord Pool entity ID
 # in 3 locations (marked with # REPLACE WITH YOUR NORD POOL ENTITY comments):
 # 1. Line ~59: Nord Pool price chart - Tomorrow series
 # 2. Line ~67: Nord Pool price chart - Today series
@@ -48,7 +48,7 @@ cards:
         icon: mdi:battery-high
 
   # Nord Pool Price Chart - Today vs Tomorrow with Discharge/Charge Overlays
-  # NOTE: Replace 'sensor.nordpool_kwh_se3_eur_3_10_025' with your actual Nord Pool entity ID
+  # NOTE: Replace 'sensor.nordpool_kwh_ee_eur_3_10_022' with your actual Nord Pool entity ID
   # You can find it in the Integration Configuration card above
   - type: custom:apexcharts-card
     experimental:
@@ -61,7 +61,7 @@ cards:
       start: day
       offset: +1d
     series:
-      - entity: sensor.nordpool_kwh_se3_eur_3_10_025  # REPLACE WITH YOUR NORD POOL ENTITY
+      - entity: sensor.nordpool_kwh_ee_eur_3_10_022  # REPLACE WITH YOUR NORD POOL ENTITY
         name: Tomorrow
         type: column
         color: '#03a9f4'
@@ -69,7 +69,7 @@ cards:
           return entity.attributes.raw_tomorrow.map((start, index) => {
             return [new Date(start["start"]).getTime(), entity.attributes.raw_tomorrow[index]["value"] * 1000];
           });
-      - entity: sensor.nordpool_kwh_se3_eur_3_10_025  # REPLACE WITH YOUR NORD POOL ENTITY
+      - entity: sensor.nordpool_kwh_ee_eur_3_10_022  # REPLACE WITH YOUR NORD POOL ENTITY
         name: Today
         offset: '-1d'
         type: column
@@ -154,7 +154,7 @@ cards:
           - entity: binary_sensor.battery_energy_trading_solar_available
             name: "Solar Active"
             icon: mdi:solar-power
-          - entity: sensor.nordpool_kwh_se3_eur_3_10_025  # REPLACE WITH YOUR NORD POOL ENTITY
+          - entity: sensor.nordpool_kwh_ee_eur_3_10_022  # REPLACE WITH YOUR NORD POOL ENTITY
             name: "Current Price"
             icon: mdi:currency-eur
 
