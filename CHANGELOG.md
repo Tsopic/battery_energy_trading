@@ -6,9 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Critical**: Dashboard Jinja2 template removal - replaced all Jinja2 entity ID templates with manual configuration
+- **Critical**: Dashboard entity ID corrections - fixed sensor entity IDs from `discharge_time_slots`/`charging_time_slots` to `discharge_hours`/`charging_hours` to match actual entity IDs created by the integration
 - Fixed ApexCharts Nord Pool entity references (2 locations)
 - Fixed Current Status card Nord Pool entity reference (1 location)
 - Added clear setup instructions in dashboard header
+- All 24 dashboard entity references now verified against const.py definitions
 
 ### Changed
 - Dashboard now requires manual Nord Pool entity ID replacement in 3 locations
