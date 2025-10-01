@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2025-10-01
+
+### Changes
+
+- fix: add device_info to all entity classes for proper registration
+- fix: add tag_name parameter to GitHub release action
+- feat: add workflow_dispatch trigger to release workflow for manual releases
+
+
 ## [0.5.3] - 2025-10-01
 
 ### Changes
