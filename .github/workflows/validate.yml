@@ -1,0 +1,126 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - refactor/*
+  pull_request:
+
+jobs:
+  validate-hacs:
+    name: HACS Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration
+
+  validate-hassfest:
+    name: Hassfest Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master
+
+  validate-manifest:
+    name: Validate Manifest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check manifest.json
+        run: |
+          if [ ! -f "custom_components/battery_energy_trading/manifest.json" ]; then
+            echo "Error: manifest.json not found"
+            exit 1
+          fi
+
+          # Validate JSON
+          cat custom_components/battery_energy_trading/manifest.json | jq . > /dev/null
+          echo "✓ manifest.json is valid JSON"
+
+          # Check required fields
+          DOMAIN=$(jq -r '.domain' custom_components/battery_energy_trading/manifest.json)
+          VERSION=$(jq -r '.version' custom_components/battery_energy_trading/manifest.json)
+          NAME=$(jq -r '.name' custom_components/battery_energy_trading/manifest.json)
+
+          if [ "$DOMAIN" != "battery_energy_trading" ]; then
+            echo "Error: Invalid domain in manifest.json"
+            exit 1
+          fi
+
+          echo "✓ Domain: $DOMAIN"
+          echo "✓ Version: $VERSION"
+          echo "✓ Name: $NAME"
+
+  validate-hacs-json:
+    name: Validate HACS Config
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check hacs.json
+        run: |
+          if [ ! -f "hacs.json" ]; then
+            echo "Error: hacs.json not found"
+            exit 1
+          fi
+
+          # Validate JSON
+          cat hacs.json | jq . > /dev/null
+          echo "✓ hacs.json is valid JSON"
+
+          NAME=$(jq -r '.name' hacs.json)
+          echo "✓ Name: $NAME"
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install voluptuous
+
+      - name: Check Python syntax
+        run: |
+          python -m py_compile custom_components/battery_energy_trading/*.py
+          echo "✓ All Python files have valid syntax"
+
+      - name: Check for common issues
+        run: |
+          # Check for print statements (should use logger)
+          if grep -r "print(" custom_components/battery_energy_trading/*.py; then
+            echo "Warning: Found print() statements. Consider using _LOGGER instead."
+          fi
+
+          # Check for TODO comments
+          if grep -r "TODO" custom_components/battery_energy_trading/*.py; then
+            echo "Info: Found TODO comments"
+          fi
+
+          echo "✓ Code quality checks completed"

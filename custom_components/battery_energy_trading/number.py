@@ -41,13 +41,18 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Battery Energy Trading number entities."""
+    # Get auto-detected rates from options if available
+    options = entry.options or {}
+    discharge_rate_default = options.get("discharge_rate", DEFAULT_DISCHARGE_RATE)
+    charge_rate_default = options.get("charge_rate", DEFAULT_CHARGE_RATE)
+
     numbers = [
         BatteryTradingNumber(
             entry,
             NUMBER_FORCED_DISCHARGE_HOURS,
             "Forced Discharge Hours",
             0,
-            8,
+            24,
             1,
             DEFAULT_FORCED_DISCHARGE_HOURS,
             "hours",
@@ -137,7 +142,7 @@ async def async_setup_entry(
             1.0,
             20.0,
             0.5,
-            DEFAULT_DISCHARGE_RATE,
+            discharge_rate_default,  # Use auto-detected value
             "kW",
             "mdi:battery-arrow-up",
         ),
@@ -148,7 +153,7 @@ async def async_setup_entry(
             1.0,
             20.0,
             0.5,
-            DEFAULT_CHARGE_RATE,
+            charge_rate_default,  # Use auto-detected value
             "kW",
             "mdi:battery-arrow-down",
         ),

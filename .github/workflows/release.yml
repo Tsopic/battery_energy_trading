@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Verify version in manifest.json
+        run: |
+          MANIFEST_VERSION=$(jq -r '.version' custom_components/battery_energy_trading/manifest.json)
+          if [ "$MANIFEST_VERSION" != "${{ steps.get_version.outputs.VERSION }}" ]; then
+            echo "Error: manifest.json version ($MANIFEST_VERSION) does not match tag (${{ steps.get_version.outputs.VERSION }})"
+            exit 1
+          fi
+          echo "✓ Version verified: $MANIFEST_VERSION"
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+
+          # Extract changelog section for this version
+          if [ -f "CHANGELOG.md" ]; then
+            # Get content between this version and next version header
+            CHANGELOG=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
+
+            # If no changelog found, use a default message
+            if [ -z "$CHANGELOG" ]; then
+              CHANGELOG="Release version ${VERSION}"
+            fi
+          else
+            CHANGELOG="Release version ${VERSION}"
+          fi
+
+          # Save to output (escape newlines)
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create release archive
+        run: |
+          cd custom_components
+          zip -r ../battery_energy_trading-${{ steps.get_version.outputs.VERSION }}.zip battery_energy_trading/
+          cd ..
+
+          # Verify archive
+          echo "Archive contents:"
+          unzip -l battery_energy_trading-${{ steps.get_version.outputs.VERSION }}.zip | head -20
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## Battery Energy Trading v${{ steps.get_version.outputs.VERSION }}
+
+          ### Installation
+
+          #### Via HACS (Recommended)
+          1. Go to HACS → Integrations
+          2. Click the three dots → Custom repositories
+          3. Add `https://github.com/Tsopic/battery_energy_trading`
+          4. Search for "Battery Energy Trading" and install
+          5. Restart Home Assistant
+
+          #### Manual Installation
+          1. Download `battery_energy_trading-${{ steps.get_version.outputs.VERSION }}.zip`
+          2. Extract to `custom_components/battery_energy_trading/`
+          3. Restart Home Assistant
+
+          ### What's New
+
+          ${{ steps.changelog.outputs.CHANGELOG }}
+
+          ### Supported Systems
+          - Home Assistant 2024.1.0+
+          - Nord Pool Integration (or any price sensor)
+          - Sungrow SHx Inverters (with auto-detection)
+          - Other battery systems (manual configuration)
+
+          ### Documentation
+          - [Installation Guide](https://github.com/Tsopic/battery_energy_trading#-installation)
+          - [Configuration Guide](https://github.com/Tsopic/battery_energy_trading#%EF%B8%8F-configuration)
+          - [Sungrow Integration](https://github.com/Tsopic/battery_energy_trading/blob/main/SUNGROW_INTEGRATION.md)
+
+          ---
+
+          **Full Changelog**: https://github.com/Tsopic/battery_energy_trading/blob/${{ steps.get_version.outputs.TAG }}/CHANGELOG.md
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Battery Energy Trading v${{ steps.get_version.outputs.VERSION }}
+          body_path: release_notes.md
+          files: |
+            battery_energy_trading-${{ steps.get_version.outputs.VERSION }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update HACS validation
+        run: |
+          echo "Release created successfully!"
+          echo "HACS will automatically pick up this release."
