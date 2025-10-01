@@ -1,74 +1,80 @@
 # Release Process
 
-This document describes how to create a new release of the Battery Energy Trading integration.
+This document describes the **fully automated** release process for the Battery Energy Trading integration.
 
-## Prerequisites
+## 🚀 Automated Release Process
 
-- Write access to the repository
-- All changes merged to main/master branch
-- Tests passing
-- Documentation updated
+**Releases are 100% automatic!** Just merge your PR to main, and the system handles everything:
 
-## Release Steps
+1. ✅ Analyzes commit messages to determine version bump type
+2. ✅ Bumps version in `manifest.json`
+3. ✅ Updates `CHANGELOG.md` with commit history
+4. ✅ Creates and pushes git tag
+5. ✅ Creates GitHub Release with ZIP archive
+6. ✅ HACS auto-detects within 24 hours
 
-### 1. Update Version
+## How It Works
 
-Update the version in `manifest.json`:
+### Commit Message Convention
 
-```json
-{
-  "version": "0.4.0"
-}
+The automation determines the version bump type from your commit messages:
+
+- **`feat:`** or **`feature:`** → Minor version bump (0.X.0)
+- **`fix:`** or **`bugfix:`** → Patch version bump (0.0.X)
+- **`breaking:`** or **`major:`** → Major version bump (X.0.0)
+
+Examples:
+```bash
+git commit -m "feat: add multi-day optimization"      # → 0.8.0 to 0.9.0
+git commit -m "fix: correct entity detection"         # → 0.8.0 to 0.8.1
+git commit -m "breaking: remove deprecated API"       # → 0.8.0 to 1.0.0
 ```
 
-### 2. Update CHANGELOG.md
+### Workflow Sequence
 
-Add a new version section to `CHANGELOG.md`:
-
-```markdown
-## [0.4.0] - 2025-01-15
-
-### Added
-- Automatic Sungrow inverter detection
-- One-click auto-configuration for Sungrow users
-- Service to sync Sungrow parameters
-- Comprehensive test suite
-
-### Changed
-- Enhanced config flow with intelligent routing
-- Number entities now use auto-detected rates
-
-### Fixed
-- (list any bug fixes)
+```
+1. Merge PR to main
+   ↓
+2. Auto-release workflow triggers
+   ↓
+3. Analyzes commits since last tag
+   ↓
+4. Calculates new version (major.minor.patch)
+   ↓
+5. Updates manifest.json + CHANGELOG.md
+   ↓
+6. Commits with [skip ci] to prevent loop
+   ↓
+7. Creates and pushes git tag (vX.Y.Z)
+   ↓
+8. Dispatches repository_dispatch event
+   ↓
+9. Release workflow triggers
+   ↓
+10. Creates GitHub Release with ZIP
 ```
 
-### 3. Commit Changes
+## Manual Release (Rarely Needed)
+
+If you need to manually create a release for an existing tag:
 
 ```bash
-git add custom_components/battery_energy_trading/manifest.json CHANGELOG.md
-git commit -m "chore: bump version to 0.4.0"
-git push origin main
+# Using GitHub CLI
+gh workflow run release.yml -f tag=v0.8.0
+
+# Or via GitHub UI
+# Go to Actions → Release → Run workflow → Enter tag → Run
 ```
 
-### 4. Create and Push Tag
+## Prerequisites for Auto-Release
 
-```bash
-# Create annotated tag
-git tag -a v0.4.0 -m "Release v0.4.0"
+The auto-release workflow triggers when:
 
-# Push tag to trigger release workflow
-git push origin v0.4.0
-```
+- ✅ Push to `main` branch
+- ✅ At least one commit since last tag
+- ❌ Skips changes to: `**.md`, `docs/**`, `.github/**`, `tests/**`, `dashboards/**`
 
-### 5. Automated Release
-
-The GitHub Actions workflow will automatically:
-1. ✅ Verify version in manifest.json matches tag
-2. ✅ Extract changelog for this version
-3. ✅ Create release archive (.zip)
-4. ✅ Generate release notes
-5. ✅ Create GitHub Release
-6. ✅ Attach release archive
+## Version Numbering
 
 ### 6. Verify Release
 
@@ -151,6 +157,26 @@ If you need to create a release manually:
 
 ## Troubleshooting
 
+### Release Workflow Not Triggering
+
+**Fixed as of October 2025**: The repository now uses `repository_dispatch` events to trigger releases automatically. If you encounter issues:
+
+1. Check that both workflows are up to date:
+   - `.github/workflows/auto-release.yml` - dispatches `tag-created` event
+   - `.github/workflows/release.yml` - listens for `repository_dispatch`
+
+2. Verify workflow logs show:
+   ```
+   Dispatched tag-created event for v0.X.Y
+   ```
+
+3. If release still doesn't trigger, manually trigger it:
+   ```bash
+   gh workflow run release.yml -f tag=v0.X.Y
+   ```
+
+**Root cause**: GitHub prevents `GITHUB_TOKEN` from triggering workflows to avoid infinite loops. Solution: Use `repository_dispatch` which is an exception to this rule.
+
 ### Tag Already Exists
 
 ```bash
@@ -178,9 +204,11 @@ If the workflow fails with version mismatch:
 
 1. Check workflow logs in GitHub Actions
 2. Fix any errors
-3. Delete the failed release
-4. Delete and recreate the tag
-5. Push again
+3. Delete the failed release (if created)
+4. Re-run the workflow:
+   ```bash
+   gh workflow run release.yml -f tag=v0.X.Y
+   ```
 
 ## Post-Release
 
