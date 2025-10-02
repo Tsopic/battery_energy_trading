@@ -51,6 +51,7 @@ from .const import (
     DEFAULT_BATTERY_LOW_THRESHOLD,
 )
 from .energy_optimizer import EnergyOptimizer
+from .base_entity import BatteryTradingBaseEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ async def async_setup_entry(
     async_add_entities(sensors)
 
 
-class BatteryTradingBinarySensor(BinarySensorEntity):
+class BatteryTradingBinarySensor(BatteryTradingBaseEntity, BinarySensorEntity):
     """Base class for Battery Energy Trading binary sensors."""
 
     def __init__(
@@ -97,20 +98,13 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
         tracked_entities: list[str],
     ) -> None:
         """Initialize the binary sensor."""
-        self.hass = hass
-        self._entry = entry
+        # Initialize base entity first
+        super().__init__(hass, entry, sensor_type)
+
+        # Add binary sensor-specific attributes
         self._sensor_type = sensor_type
         self._tracked_entities = tracked_entities
-        self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{sensor_type}"
         self._attr_suggested_object_id = f"{DOMAIN}_{sensor_type}"
-        self._attr_has_entity_name = True
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="Battery Energy Trading",
-            manufacturer="Battery Energy Trading",
-            model="Energy Optimizer",
-            sw_version=VERSION,
-        )
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""
@@ -126,34 +120,6 @@ class BatteryTradingBinarySensor(BinarySensorEntity):
                 self.hass, self._tracked_entities, sensor_state_listener
             )
         )
-
-    def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
-        """Get float value from entity state."""
-        if not entity_id:
-            return default
-
-        state = self.hass.states.get(entity_id)
-        if not state or state.state in ("unknown", "unavailable"):
-            return default
-
-        try:
-            return float(state.state)
-        except (ValueError, TypeError):
-            return default
-
-    def _get_switch_state(self, switch_type: str) -> bool:
-        """Get switch state."""
-        entity_id = f"switch.{DOMAIN}_{self._entry.entry_id}_{switch_type}"
-        state = self.hass.states.get(entity_id)
-        if not state:
-            return True  # Default to enabled if switch not found
-
-        return state.state == "on"
-
-    def _get_number_entity_value(self, number_type: str, default: float) -> float:
-        """Get value from number entity."""
-        entity_id = f"number.{DOMAIN}_{self._entry.entry_id}_{number_type}"
-        return self._get_float_state(entity_id, default)
 
 
 class ForcedDischargeSensor(BatteryTradingBinarySensor):
