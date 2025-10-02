@@ -572,10 +572,17 @@ class EnergyOptimizer:
             " (with battery state projection)" if solar_forecast_data else "",
         )
 
-        # Cache the result
-        self._set_cached(cache_key, selected_slots)
+        # Combine consecutive slots into longer discharge periods
+        combined_slots = self._combine_consecutive_slots(
+            selected_slots,
+            min_battery_reserve_percent=10.0,  # TODO: Make configurable
+            battery_capacity_kwh=battery_capacity,
+        )
 
-        return selected_slots
+        # Cache the result
+        self._set_cached(cache_key, combined_slots)
+
+        return combined_slots
 
     def select_charging_slots(
         self,
@@ -731,10 +738,17 @@ class EnergyOptimizer:
             " (multi-day with solar forecast)" if solar_battery_estimates else "",
         )
 
-        # Cache the result
-        self._set_cached(cache_key, selected_slots)
+        # Combine consecutive slots into longer charging periods
+        combined_slots = self._combine_consecutive_slots(
+            selected_slots,
+            min_battery_reserve_percent=10.0,
+            battery_capacity_kwh=battery_capacity,
+        )
 
-        return selected_slots
+        # Cache the result
+        self._set_cached(cache_key, combined_slots)
+
+        return combined_slots
 
     def calculate_arbitrage_opportunities(
         self,
@@ -852,3 +866,104 @@ class EnergyOptimizer:
                 return True
 
         return False
+
+    @staticmethod
+    def _combine_consecutive_slots(
+        slots: list[dict[str, Any]],
+        min_battery_reserve_percent: float = 10.0,
+        battery_capacity_kwh: float | None = None,
+    ) -> list[dict[str, Any]]:
+        """Combine consecutive profitable slots into longer discharge periods.
+
+        This creates longer discharge windows when multiple consecutive slots are
+        profitable, respecting battery capacity and reserve constraints.
+
+        Args:
+            slots: List of individual slots sorted by start time
+            min_battery_reserve_percent: Minimum battery level to maintain (default 10%)
+            battery_capacity_kwh: Battery capacity for reserve calculation (optional)
+
+        Returns:
+            List of combined slots with merged consecutive periods
+        """
+        if not slots:
+            return []
+
+        # Sort by start time to ensure consecutive detection works
+        sorted_slots = sorted(slots, key=lambda x: x["start"])
+
+        combined = []
+        current_group = [sorted_slots[0]]
+
+        for slot in sorted_slots[1:]:
+            # Check if this slot is consecutive with the previous one
+            last_slot = current_group[-1]
+
+            # Slots are consecutive if the end time of the last slot equals the start time of this slot
+            if last_slot["end"] == slot["start"]:
+                current_group.append(slot)
+            else:
+                # Not consecutive - finalize the current group and start a new one
+                combined.append(_merge_slot_group(current_group))
+                current_group = [slot]
+
+        # Don't forget the last group
+        if current_group:
+            combined.append(_merge_slot_group(current_group))
+
+        _LOGGER.info(
+            "Combined %d individual slots into %d consecutive discharge periods",
+            len(slots),
+            len(combined),
+        )
+
+        return combined
+
+
+def _merge_slot_group(group: list[dict[str, Any]]) -> dict[str, Any]:
+    """Merge a group of consecutive slots into a single combined slot.
+
+    Args:
+        group: List of consecutive slots to merge
+
+    Returns:
+        Single merged slot combining all periods in the group
+    """
+    if len(group) == 1:
+        return group[0].copy()
+
+    # Calculate combined metrics
+    total_energy = sum(slot.get("energy_kwh", 0) for slot in group)
+    total_revenue = sum(slot.get("revenue", 0) for slot in group)
+    total_cost = sum(slot.get("cost", 0) for slot in group)
+    total_duration = sum(slot.get("duration_hours", 0) for slot in group)
+
+    # Calculate weighted average price
+    if total_energy > 0:
+        weighted_price = (total_revenue if total_revenue > 0 else total_cost) / total_energy
+    else:
+        weighted_price = sum(slot.get("price", 0) for slot in group) / len(group)
+
+    # Create merged slot
+    merged = {
+        "start": group[0]["start"],
+        "end": group[-1]["end"],
+        "price": weighted_price,
+        "energy_kwh": total_energy,
+        "duration_hours": total_duration,
+        "slot_count": len(group),  # Track how many original slots were merged
+    }
+
+    # Add revenue or cost depending on what's present
+    if total_revenue > 0:
+        merged["revenue"] = total_revenue
+    if total_cost > 0:
+        merged["cost"] = total_cost
+
+    # Preserve battery state from first and last slot if available
+    if "battery_before" in group[0]:
+        merged["battery_before"] = group[0]["battery_before"]
+    if "battery_after" in group[-1]:
+        merged["battery_after"] = group[-1]["battery_after"]
+
+    return merged

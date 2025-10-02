@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2025-10-02
+
+### Added
+- **Smart Slot Combination**: Consecutive profitable time slots are now automatically combined into longer discharge/charge periods
+  - Example: Four consecutive 15-minute slots (20:00-21:00) are merged into a single 1-hour period
+  - Preserves total energy, revenue/cost, and battery state across merged periods
+  - Reduces number of inverter mode changes for better battery health
+  - Tracked via `slot_count` attribute showing how many original slots were combined
+
+### Fixed
+- **Dashboard Configuration Card**: Fixed entity attribute display using proper markdown template syntax instead of unsupported `type: attribute` rows
+  - Configuration card now uses markdown card with Jinja2 templates
+  - Displays Nord Pool entity, battery entities, and solar entities correctly
+  - Shows all configured entity IDs in copyable format
+
+### Changed
+- Discharge and charging slot selection now returns combined consecutive periods
+- Dashboard configuration card redesigned with better visual hierarchy
+- Slot metadata now includes `slot_count` to track merged periods
+
 ## [0.10.1] - 2025-10-01
 
 ### Fixed

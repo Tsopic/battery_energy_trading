@@ -23,29 +23,29 @@ path: battery-energy-trading
 icon: mdi:battery-charging
 cards:
   # Configuration Info Card (shows your configured entities)
-  - type: entities
+  - type: markdown
     title: "⚙️ Integration Configuration"
-    state_color: false
-    show_header_toggle: false
-    entities:
-      - entity: sensor.battery_energy_trading_configuration
-        name: "Status"
-        icon: mdi:check-circle
-      - type: attribute
-        entity: sensor.battery_energy_trading_configuration
-        attribute: nordpool_entity
-        name: "Nord Pool Entity"
-        icon: mdi:chart-line
-      - type: attribute
-        entity: sensor.battery_energy_trading_configuration
-        attribute: battery_level_entity
-        name: "Battery Level Entity"
-        icon: mdi:battery
-      - type: attribute
-        entity: sensor.battery_energy_trading_configuration
-        attribute: battery_capacity_entity
-        name: "Battery Capacity Entity"
-        icon: mdi:battery-high
+    content: |
+      **Status**: {{ states('sensor.battery_energy_trading_configuration') }}
+
+      🔌 **Nord Pool Entity**
+      `{{ state_attr('sensor.battery_energy_trading_configuration', 'nordpool_entity') }}`
+
+      🔋 **Battery Level Entity**
+      `{{ state_attr('sensor.battery_energy_trading_configuration', 'battery_level_entity') }}`
+
+      🔋 **Battery Capacity Entity**
+      `{{ state_attr('sensor.battery_energy_trading_configuration', 'battery_capacity_entity') }}`
+
+      {% if state_attr('sensor.battery_energy_trading_configuration', 'solar_forecast_entity') %}
+      ☀️ **Solar Forecast Entity**
+      `{{ state_attr('sensor.battery_energy_trading_configuration', 'solar_forecast_entity') }}`
+      {% endif %}
+
+      {% if state_attr('sensor.battery_energy_trading_configuration', 'solar_power_entity') %}
+      ☀️ **Solar Power Entity**
+      `{{ state_attr('sensor.battery_energy_trading_configuration', 'solar_power_entity') }}`
+      {% endif %}
 
   # Nord Pool Price Chart - Today vs Tomorrow with Discharge/Charge Overlays
   # NOTE: Replace 'sensor.nordpool_kwh_se3_eur_3_10_025' with your actual Nord Pool entity ID
