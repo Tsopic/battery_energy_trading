@@ -16,6 +16,10 @@ All notable changes to this project will be documented in this file.
   - Previously hardcoded to 10%, now uses dashboard-configurable value (10-50%, default 25%)
   - Configured via `number.battery_energy_trading_min_battery_level` entity
   - Visible in dashboard under "Battery Settings" → "Minimum Battery Discharge Level"
+- **Arbitrage Efficiency**: Default round-trip efficiency updated from 90% to 70% (30% loss)
+  - Reflects realistic energy losses from charging/discharging/inverter conversions
+  - Makes arbitrage profit calculations more conservative and accurate
+  - Breakdown: charging losses (~10%), discharging losses (~10%), inverter losses (~5-10%)
 - Slot combination now respects user's battery protection settings
 - Weighted price calculation improved for combined slots
 

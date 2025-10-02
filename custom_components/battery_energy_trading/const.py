@@ -30,6 +30,7 @@ DEFAULT_MIN_SOLAR_THRESHOLD: Final = 500
 DEFAULT_DISCHARGE_RATE_KW: Final = 5.0  # kW
 DEFAULT_CHARGE_RATE_KW: Final = 5.0  # kW
 DEFAULT_MIN_ARBITRAGE_PROFIT: Final = 0.50  # EUR
+DEFAULT_BATTERY_EFFICIENCY: Final = 0.7  # 70% round-trip efficiency (30% loss from charging/discharging/inverter losses)
 
 # Sensor types
 SENSOR_ARBITRAGE_OPPORTUNITIES: Final = "arbitrage_opportunities"

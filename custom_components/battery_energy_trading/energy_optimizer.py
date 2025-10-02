@@ -762,22 +762,29 @@ class EnergyOptimizer:
         battery_capacity: float,
         charge_rate: float = 5.0,
         discharge_rate: float = 5.0,
-        efficiency: float = 0.9,
+        efficiency: float = 0.7,
         min_profit_threshold: float = 0.05,
     ) -> list[dict[str, Any]]:
         """
-        Find arbitrage opportunities considering battery capacity and efficiency.
+        Find arbitrage opportunities considering battery capacity and efficiency losses.
+
+        Accounts for realistic round-trip efficiency of 70% (30% total energy loss):
+        - Charging losses: ~10% (AC to DC conversion, heat)
+        - Discharging losses: ~10% (DC to AC conversion, heat)
+        - Inverter losses: ~5-10% (switching, transformation)
+        - Total combined loss: ~30%
 
         Args:
             raw_prices: List of price data
             battery_capacity: Battery capacity in kWh
             charge_rate: Charging rate in kW
             discharge_rate: Discharging rate in kW
-            efficiency: Round-trip efficiency (0-1)
+            efficiency: Round-trip efficiency (0-1), default 0.7 = 30% loss
             min_profit_threshold: Minimum profit threshold in EUR
 
         Returns:
-            List of arbitrage opportunities with charge/discharge windows
+            List of arbitrage opportunities with charge/discharge windows,
+            accounting for energy losses during charge/discharge cycles
         """
         if not raw_prices or len(raw_prices) < 3:
             return []
