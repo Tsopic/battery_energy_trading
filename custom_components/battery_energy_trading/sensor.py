@@ -30,6 +30,9 @@ from .const import (
     NUMBER_FORCED_DISCHARGE_HOURS,
     NUMBER_DISCHARGE_RATE_KW,
     NUMBER_CHARGE_RATE_KW,
+    NUMBER_MIN_BATTERY_LEVEL,
+    NUMBER_MIN_ARBITRAGE_PROFIT,
+    NUMBER_BATTERY_EFFICIENCY,
     SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
     DEFAULT_MIN_FORCED_SELL_PRICE,
     DEFAULT_MAX_FORCE_CHARGE_PRICE,
@@ -37,7 +40,9 @@ from .const import (
     DEFAULT_FORCED_DISCHARGE_HOURS,
     DEFAULT_DISCHARGE_RATE_KW,
     DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_MIN_BATTERY_LEVEL,
     DEFAULT_MIN_ARBITRAGE_PROFIT,
+    DEFAULT_BATTERY_EFFICIENCY,
 )
 from .energy_optimizer import EnergyOptimizer
 
@@ -217,11 +222,14 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
                 return "Insufficient data"
 
             battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+            min_profit = self._get_number_entity_value(NUMBER_MIN_ARBITRAGE_PROFIT, DEFAULT_MIN_ARBITRAGE_PROFIT)
+            efficiency = self._get_number_entity_value(NUMBER_BATTERY_EFFICIENCY, DEFAULT_BATTERY_EFFICIENCY) / 100.0
 
             opportunities = self._optimizer.calculate_arbitrage_opportunities(
                 raw_today,
                 battery_capacity,
-                min_profit_threshold=DEFAULT_MIN_ARBITRAGE_PROFIT,
+                efficiency=efficiency,
+                min_profit_threshold=min_profit,
             )
 
             if opportunities:
@@ -245,11 +253,14 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
             return {}
 
         battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+        min_profit = self._get_number_entity_value(NUMBER_MIN_ARBITRAGE_PROFIT, DEFAULT_MIN_ARBITRAGE_PROFIT)
+        efficiency = self._get_number_entity_value(NUMBER_BATTERY_EFFICIENCY, DEFAULT_BATTERY_EFFICIENCY) / 100.0
 
         opportunities = self._optimizer.calculate_arbitrage_opportunities(
             raw_today,
             battery_capacity,
-            min_profit_threshold=DEFAULT_MIN_ARBITRAGE_PROFIT,
+            efficiency=efficiency,
+            min_profit_threshold=min_profit,
         )
 
         return {

@@ -22,6 +22,9 @@ from .const import (
     NUMBER_MIN_SOLAR_THRESHOLD,
     NUMBER_DISCHARGE_RATE_KW,
     NUMBER_CHARGE_RATE_KW,
+    NUMBER_MIN_ARBITRAGE_PROFIT,
+    NUMBER_BATTERY_EFFICIENCY,
+    NUMBER_BATTERY_LOW_THRESHOLD,
     DEFAULT_MIN_EXPORT_PRICE,
     DEFAULT_MIN_FORCED_SELL_PRICE,
     DEFAULT_MAX_FORCE_CHARGE_PRICE,
@@ -32,6 +35,9 @@ from .const import (
     DEFAULT_MIN_SOLAR_THRESHOLD,
     DEFAULT_DISCHARGE_RATE_KW,
     DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_MIN_ARBITRAGE_PROFIT,
+    DEFAULT_BATTERY_EFFICIENCY,
+    DEFAULT_BATTERY_LOW_THRESHOLD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -158,6 +164,39 @@ async def async_setup_entry(
             charge_rate_default,  # Use auto-detected value
             "kW",
             "mdi:battery-arrow-down",
+        ),
+        BatteryTradingNumber(
+            entry,
+            NUMBER_MIN_ARBITRAGE_PROFIT,
+            "Minimum Arbitrage Profit",
+            0.0,
+            5.0,
+            0.10,
+            DEFAULT_MIN_ARBITRAGE_PROFIT,
+            "EUR",
+            "mdi:currency-eur",
+        ),
+        BatteryTradingNumber(
+            entry,
+            NUMBER_BATTERY_EFFICIENCY,
+            "Battery Round-Trip Efficiency",
+            50,
+            95,
+            5,
+            DEFAULT_BATTERY_EFFICIENCY,
+            "%",
+            "mdi:battery-sync",
+        ),
+        BatteryTradingNumber(
+            entry,
+            NUMBER_BATTERY_LOW_THRESHOLD,
+            "Battery Low Warning Threshold",
+            5,
+            30,
+            1,
+            DEFAULT_BATTERY_LOW_THRESHOLD,
+            "%",
+            "mdi:battery-alert",
         ),
     ]
 

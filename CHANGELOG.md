@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] - 2025-10-02
+
+### Added
+- **Three New User-Configurable Parameters**:
+  - `number.battery_energy_trading_min_arbitrage_profit` - Minimum profit threshold for arbitrage detection (0.0-5.0 EUR, default 0.50)
+  - `number.battery_energy_trading_battery_efficiency` - Round-trip battery efficiency for calculations (50%-95%, default 70%)
+  - `number.battery_energy_trading_battery_low_threshold` - Customizable battery low warning trigger (5%-30%, default 15%)
+
+### Changed
+- **Battery Low Sensor**: Now uses configurable threshold instead of hardcoded 15%
+  - Allows users to customize when low battery warning triggers
+  - Entity name simplified from "Battery Below 15%" to "Battery Low"
+- **Arbitrage Detection**: Now uses user-configured minimum profit and efficiency values
+  - Previously used hardcoded values, now fully customizable from dashboard
+  - Efficiency parameter enables calibration based on actual battery performance
+- **Dashboard Updates**:
+  - Added all three new number entities to dashboard
+  - Reorganized "Battery Settings" section with new performance parameters
+  - Updated "Price Thresholds" section title to include arbitrage
+
+### Technical
+- Added `NUMBER_MIN_ARBITRAGE_PROFIT`, `NUMBER_BATTERY_EFFICIENCY`, `NUMBER_BATTERY_LOW_THRESHOLD` constants
+- Updated `ArbitrageOpportunitiesSensor` to read and pass configurable efficiency and min profit
+- Updated `BatteryLowSensor` to use configurable threshold
+- Dashboard now displays 13 number entities (was 10)
+
 ## [0.12.0] - 2025-10-02
 
 ### Added

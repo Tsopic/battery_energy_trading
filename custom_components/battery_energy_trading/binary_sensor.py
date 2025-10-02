@@ -34,6 +34,7 @@ from .const import (
     NUMBER_FORCED_DISCHARGE_HOURS,
     NUMBER_DISCHARGE_RATE_KW,
     NUMBER_CHARGE_RATE_KW,
+    NUMBER_BATTERY_LOW_THRESHOLD,
     SWITCH_ENABLE_FORCED_CHARGING,
     SWITCH_ENABLE_FORCED_DISCHARGE,
     SWITCH_ENABLE_EXPORT_MANAGEMENT,
@@ -47,6 +48,7 @@ from .const import (
     DEFAULT_FORCED_DISCHARGE_HOURS,
     DEFAULT_DISCHARGE_RATE_KW,
     DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_BATTERY_LOW_THRESHOLD,
 )
 from .energy_optimizer import EnergyOptimizer
 
@@ -386,19 +388,20 @@ class BatteryLowSensor(BatteryTradingBinarySensor):
         """Initialize the battery low sensor."""
         super().__init__(hass, entry, BINARY_SENSOR_BATTERY_LOW, [battery_level_entity])
         self._battery_level_entity = battery_level_entity
-        self._attr_name = "Battery Below 15%"
+        self._attr_name = "Battery Low"
         self._attr_device_class = "battery"
 
     @property
     def is_on(self) -> bool:
-        """Return true if battery is below 15%."""
+        """Return true if battery is below configured threshold."""
         state = self.hass.states.get(self._battery_level_entity)
         if not state or state.state in ("unknown", "unavailable"):
             return False
 
         try:
             battery_level = float(state.state)
-            return battery_level < 15
+            threshold = self._get_number_entity_value(NUMBER_BATTERY_LOW_THRESHOLD, DEFAULT_BATTERY_LOW_THRESHOLD)
+            return battery_level < threshold
         except (ValueError, TypeError):
             return False
 

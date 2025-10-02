@@ -364,7 +364,7 @@ cards:
   - type: vertical-stack
     cards:
       - type: markdown
-        content: "## 💵 Price Thresholds"
+        content: "## 💵 Price Thresholds & Arbitrage"
 
       - type: entities
         title: "Configure Price Limits"
@@ -378,6 +378,9 @@ cards:
           - entity: number.battery_energy_trading_max_force_charge_price
             name: "Max Buy Price"
             icon: mdi:currency-eur
+          - entity: number.battery_energy_trading_min_arbitrage_profit
+            name: "Min Arbitrage Profit"
+            icon: mdi:currency-eur
 
   # Battery Settings
   - type: vertical-stack
@@ -386,11 +389,17 @@ cards:
         content: "## 🔋 Battery Settings"
 
       - type: entities
-        title: "Battery Protection"
+        title: "Battery Protection & Performance"
         entities:
           - entity: number.battery_energy_trading_min_battery_level
-            name: "Min Battery Level"
+            name: "Min Battery Discharge Level"
             icon: mdi:battery-low
+          - entity: number.battery_energy_trading_battery_low_threshold
+            name: "Battery Low Warning Threshold"
+            icon: mdi:battery-alert
+          - entity: number.battery_energy_trading_battery_efficiency
+            name: "Battery Round-Trip Efficiency"
+            icon: mdi:battery-sync
           - entity: number.battery_energy_trading_discharge_rate_kw
             name: "Discharge Rate"
             icon: mdi:battery-arrow-up
@@ -451,7 +460,7 @@ cards:
         state_color: true
         entities:
           - entity: binary_sensor.battery_energy_trading_battery_low
-            name: "Battery Below 15%"
+            name: "Battery Low Warning"
             icon: mdi:battery-alert
           - entity: binary_sensor.battery_energy_trading_low_price
             name: "Low Price Mode"
