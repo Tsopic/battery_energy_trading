@@ -362,6 +362,7 @@ class EnergyOptimizer:
         raw_tomorrow: list[dict[str, Any]] | None = None,
         solar_forecast_data: dict[str, Any] | None = None,
         multiday_enabled: bool = False,
+        min_battery_reserve_percent: float = 25.0,
     ) -> list[dict[str, Any]]:
         """
         Intelligently select discharge time slots based on price and battery capacity.
@@ -376,9 +377,12 @@ class EnergyOptimizer:
             raw_tomorrow: Tomorrow's price data (optional, for multi-day optimization)
             solar_forecast_data: Solar forecast data (optional, for battery level estimation)
             multiday_enabled: Enable multi-day optimization across today + tomorrow
+            min_battery_reserve_percent: Minimum battery reserve to maintain (default 25%)
 
         Returns:
-            List of selected discharge slots with calculated energy amounts
+            List of selected discharge slots with calculated energy amounts, combined
+            into consecutive periods. Partial discharge is applied automatically if
+            needed to respect the minimum battery reserve.
         """
         # Validate inputs
         battery_capacity, battery_level, discharge_rate = self._validate_inputs(
@@ -573,9 +577,10 @@ class EnergyOptimizer:
         )
 
         # Combine consecutive slots into longer discharge periods
+        # Respects user-configured minimum battery reserve
         combined_slots = self._combine_consecutive_slots(
             selected_slots,
-            min_battery_reserve_percent=10.0,  # TODO: Make configurable
+            min_battery_reserve_percent=min_battery_reserve_percent,
             battery_capacity_kwh=battery_capacity,
         )
 
@@ -739,9 +744,10 @@ class EnergyOptimizer:
         )
 
         # Combine consecutive slots into longer charging periods
+        # Note: Reserve doesn't apply to charging, but kept for consistency
         combined_slots = self._combine_consecutive_slots(
             selected_slots,
-            min_battery_reserve_percent=10.0,
+            min_battery_reserve_percent=0.0,  # No reserve limit for charging
             battery_capacity_kwh=battery_capacity,
         )
 
@@ -876,15 +882,18 @@ class EnergyOptimizer:
         """Combine consecutive profitable slots into longer discharge periods.
 
         This creates longer discharge windows when multiple consecutive slots are
-        profitable, respecting battery capacity and reserve constraints.
+        profitable, respecting battery capacity and reserve constraints. When battery
+        runs low during a period, the last slot is automatically reduced to partial
+        discharge to avoid violating the minimum reserve.
 
         Args:
             slots: List of individual slots sorted by start time
-            min_battery_reserve_percent: Minimum battery level to maintain (default 10%)
+            min_battery_reserve_percent: Minimum battery level to maintain (user configurable)
             battery_capacity_kwh: Battery capacity for reserve calculation (optional)
 
         Returns:
-            List of combined slots with merged consecutive periods
+            List of combined slots with merged consecutive periods, with partial
+            discharge applied to final slot if needed to respect battery reserve
         """
         if not slots:
             return []
@@ -904,33 +913,68 @@ class EnergyOptimizer:
                 current_group.append(slot)
             else:
                 # Not consecutive - finalize the current group and start a new one
-                combined.append(_merge_slot_group(current_group))
+                combined.append(_merge_slot_group(current_group, min_battery_reserve_percent, battery_capacity_kwh))
                 current_group = [slot]
 
         # Don't forget the last group
         if current_group:
-            combined.append(_merge_slot_group(current_group))
+            combined.append(_merge_slot_group(current_group, min_battery_reserve_percent, battery_capacity_kwh))
 
         _LOGGER.info(
-            "Combined %d individual slots into %d consecutive discharge periods",
+            "Combined %d individual slots into %d consecutive discharge periods (min reserve: %.0f%%)",
             len(slots),
             len(combined),
+            min_battery_reserve_percent,
         )
 
         return combined
 
 
-def _merge_slot_group(group: list[dict[str, Any]]) -> dict[str, Any]:
+def _merge_slot_group(
+    group: list[dict[str, Any]],
+    min_battery_reserve_percent: float = 10.0,
+    battery_capacity_kwh: float | None = None,
+) -> dict[str, Any]:
     """Merge a group of consecutive slots into a single combined slot.
+
+    Implements partial slot discharge: if the combined discharge would violate
+    the minimum battery reserve, the last slot is automatically reduced to stop
+    at the reserve threshold.
 
     Args:
         group: List of consecutive slots to merge
+        min_battery_reserve_percent: Minimum battery level to maintain
+        battery_capacity_kwh: Battery capacity for reserve calculation
 
     Returns:
-        Single merged slot combining all periods in the group
+        Single merged slot combining all periods in the group, with partial
+        discharge applied if needed to respect battery reserve
     """
     if len(group) == 1:
-        return group[0].copy()
+        slot = group[0].copy()
+        # Check if single slot needs partial discharge
+        if battery_capacity_kwh and "battery_after" in slot:
+            min_reserve_kwh = (battery_capacity_kwh * min_battery_reserve_percent) / 100.0
+            if slot["battery_after"] < min_reserve_kwh:
+                # Reduce energy to stop at reserve
+                battery_before = slot.get("battery_before", 0)
+                available_energy = max(0, battery_before - min_reserve_kwh)
+                if available_energy < slot["energy_kwh"]:
+                    # Apply partial discharge
+                    reduction_ratio = available_energy / slot["energy_kwh"] if slot["energy_kwh"] > 0 else 0
+                    slot["energy_kwh"] = available_energy
+                    slot["revenue"] = slot.get("revenue", 0) * reduction_ratio
+                    slot["cost"] = slot.get("cost", 0) * reduction_ratio
+                    slot["duration_hours"] = slot.get("duration_hours", 0) * reduction_ratio
+                    slot["battery_after"] = min_reserve_kwh
+                    slot["partial_discharge"] = True
+                    _LOGGER.info(
+                        "Applied partial discharge to slot %s: reduced to %.2f kWh to respect %.0f%% reserve",
+                        slot["start"],
+                        available_energy,
+                        min_battery_reserve_percent,
+                    )
+        return slot
 
     # Calculate combined metrics
     total_energy = sum(slot.get("energy_kwh", 0) for slot in group)
@@ -964,6 +1008,34 @@ def _merge_slot_group(group: list[dict[str, Any]]) -> dict[str, Any]:
     if "battery_before" in group[0]:
         merged["battery_before"] = group[0]["battery_before"]
     if "battery_after" in group[-1]:
-        merged["battery_after"] = group[-1]["battery_after"]
+        battery_after = group[-1]["battery_after"]
+
+        # Check if combined discharge violates minimum reserve
+        if battery_capacity_kwh:
+            min_reserve_kwh = (battery_capacity_kwh * min_battery_reserve_percent) / 100.0
+            if battery_after < min_reserve_kwh:
+                # Need to reduce total energy to respect reserve
+                battery_before = group[0]["battery_before"]
+                available_energy = max(0, battery_before - min_reserve_kwh)
+
+                if available_energy < total_energy:
+                    # Apply partial discharge to the combined period
+                    reduction_ratio = available_energy / total_energy if total_energy > 0 else 0
+                    merged["energy_kwh"] = available_energy
+                    merged["revenue"] = total_revenue * reduction_ratio
+                    merged["cost"] = total_cost * reduction_ratio
+                    merged["duration_hours"] = total_duration * reduction_ratio
+                    battery_after = min_reserve_kwh
+                    merged["partial_discharge"] = True
+                    _LOGGER.info(
+                        "Applied partial discharge to combined period %s-%s: reduced from %.2f to %.2f kWh to respect %.0f%% reserve",
+                        group[0]["start"],
+                        group[-1]["end"],
+                        total_energy,
+                        available_energy,
+                        min_battery_reserve_percent,
+                    )
+
+        merged["battery_after"] = battery_after
 
     return merged

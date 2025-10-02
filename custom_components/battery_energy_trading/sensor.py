@@ -371,6 +371,9 @@ class DischargeHoursSensor(BatteryTradingSensor):
         forced_discharge_hours = self._get_number_entity_value(
             NUMBER_FORCED_DISCHARGE_HOURS, DEFAULT_FORCED_DISCHARGE_HOURS
         )
+        min_battery_level = self._get_number_entity_value(
+            NUMBER_MIN_BATTERY_LEVEL, DEFAULT_MIN_BATTERY_LEVEL
+        )
 
         # 0 = unlimited (use battery capacity limit only)
         max_hours = None if forced_discharge_hours == 0 else forced_discharge_hours
@@ -385,6 +388,7 @@ class DischargeHoursSensor(BatteryTradingSensor):
             raw_tomorrow=raw_tomorrow,
             solar_forecast_data=solar_forecast_data,
             multiday_enabled=multiday_enabled,
+            min_battery_reserve_percent=min_battery_level,
         )
 
 

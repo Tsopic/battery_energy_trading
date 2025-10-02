@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2025-10-02
+
+### Added
+- **Partial Slot Discharge**: Automatically reduces discharge amount when battery runs low to respect minimum reserve
+  - Prevents battery from discharging below user-configured minimum level (10-50%, default 25%)
+  - Applies to both individual slots and combined consecutive periods
+  - Slot metadata includes `partial_discharge: true` flag when applied
+  - Logs reduction amount and reason for transparency
+
+### Changed
+- **User-Configurable Battery Reserve**: Minimum battery level parameter now controls slot combination and partial discharge
+  - Previously hardcoded to 10%, now uses dashboard-configurable value (10-50%, default 25%)
+  - Configured via `number.battery_energy_trading_min_battery_level` entity
+  - Visible in dashboard under "Battery Settings" → "Minimum Battery Discharge Level"
+- Slot combination now respects user's battery protection settings
+- Weighted price calculation improved for combined slots
+
+### Technical
+- `select_discharge_slots()` now accepts `min_battery_reserve_percent` parameter
+- `_combine_consecutive_slots()` respects battery reserve constraints
+- `_merge_slot_group()` implements partial discharge logic
+- Discharge sensor retrieves and passes minimum battery level to optimizer
+
 ## [0.11.0] - 2025-10-02
 
 ### Added
