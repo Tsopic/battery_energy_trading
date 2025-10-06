@@ -1,14 +1,13 @@
 """DataUpdateCoordinator for Battery Energy Trading."""
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_NORDPOOL_ENTITY
 
 _LOGGER = logging.getLogger(__name__)
 

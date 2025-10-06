@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from typing import Final
 
+
 DOMAIN: Final = "battery_energy_trading"
 
 # Read version from manifest.json

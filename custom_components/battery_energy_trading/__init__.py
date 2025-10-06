@@ -5,7 +5,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -14,6 +13,7 @@ from homeassistant.helpers import config_validation as cv
 from .const import CONF_NORDPOOL_ENTITY
 from .coordinator import BatteryEnergyTradingCoordinator
 from .sungrow_helper import SungrowHelper
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ PLATFORMS = [
 SERVICE_SYNC_SUNGROW_PARAMS = "sync_sungrow_parameters"
 
 
-async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:  # noqa: ARG001
     """Set up the Battery Energy Trading component."""
     hass.data.setdefault(DOMAIN, {})
 

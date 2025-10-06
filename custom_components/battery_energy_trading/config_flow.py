@@ -2,27 +2,26 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .const import (
-    DOMAIN,
-    CONF_NORDPOOL_ENTITY,
-    CONF_BATTERY_LEVEL_ENTITY,
     CONF_BATTERY_CAPACITY_ENTITY,
-    CONF_SOLAR_POWER_ENTITY,
+    CONF_BATTERY_LEVEL_ENTITY,
+    CONF_NORDPOOL_ENTITY,
     CONF_SOLAR_FORECAST_ENTITY,
+    CONF_SOLAR_POWER_ENTITY,
     DEFAULT_CHARGE_RATE_KW,
     DEFAULT_DISCHARGE_RATE_KW,
+    DOMAIN,
 )
 from .sungrow_helper import SungrowHelper
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -108,7 +107,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
     async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: dict[str, Any] | None = None  # noqa: ARG002
     ) -> FlowResult:
         """Handle the initial step - check for Nord Pool integration and Sungrow auto-detection."""
         # First check if Nord Pool integration is available
@@ -137,8 +136,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             if user_input.get("use_auto_detection"):
                 return await self.async_step_sungrow_auto()
-            else:
-                return await self.async_step_manual()
+            return await self.async_step_manual()
 
         return self.async_show_form(
             step_id="sungrow_detect",

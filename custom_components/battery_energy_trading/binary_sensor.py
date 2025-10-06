@@ -2,56 +2,52 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
+from .base_entity import BatteryTradingBaseEntity
 from .const import (
-    DOMAIN,
-    VERSION,
-    CONF_NORDPOOL_ENTITY,
-    CONF_BATTERY_LEVEL_ENTITY,
-    CONF_BATTERY_CAPACITY_ENTITY,
-    CONF_SOLAR_POWER_ENTITY,
-    CONF_SOLAR_FORECAST_ENTITY,
+    BINARY_SENSOR_BATTERY_LOW,
+    BINARY_SENSOR_CHEAPEST_HOURS,
+    BINARY_SENSOR_EXPORT_PROFITABLE,
     BINARY_SENSOR_FORCED_DISCHARGE,
     BINARY_SENSOR_LOW_PRICE,
-    BINARY_SENSOR_EXPORT_PROFITABLE,
-    BINARY_SENSOR_CHEAPEST_HOURS,
-    BINARY_SENSOR_BATTERY_LOW,
     BINARY_SENSOR_SOLAR_AVAILABLE,
-    NUMBER_MIN_EXPORT_PRICE,
-    NUMBER_MIN_FORCED_SELL_PRICE,
-    NUMBER_MAX_FORCE_CHARGE_PRICE,
-    NUMBER_MIN_BATTERY_LEVEL,
-    NUMBER_MIN_SOLAR_THRESHOLD,
-    NUMBER_FORCE_CHARGE_TARGET,
-    NUMBER_FORCED_DISCHARGE_HOURS,
-    NUMBER_DISCHARGE_RATE_KW,
-    NUMBER_CHARGE_RATE_KW,
-    NUMBER_BATTERY_LOW_THRESHOLD,
-    SWITCH_ENABLE_FORCED_CHARGING,
-    SWITCH_ENABLE_FORCED_DISCHARGE,
-    SWITCH_ENABLE_EXPORT_MANAGEMENT,
-    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
-    DEFAULT_MIN_EXPORT_PRICE,
-    DEFAULT_MIN_FORCED_SELL_PRICE,
-    DEFAULT_MAX_FORCE_CHARGE_PRICE,
-    DEFAULT_MIN_BATTERY_LEVEL,
-    DEFAULT_MIN_SOLAR_THRESHOLD,
+    CONF_BATTERY_CAPACITY_ENTITY,
+    CONF_BATTERY_LEVEL_ENTITY,
+    CONF_NORDPOOL_ENTITY,
+    CONF_SOLAR_FORECAST_ENTITY,
+    CONF_SOLAR_POWER_ENTITY,
+    DEFAULT_BATTERY_LOW_THRESHOLD,
+    DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_DISCHARGE_RATE_KW,
     DEFAULT_FORCE_CHARGE_TARGET,
     DEFAULT_FORCED_DISCHARGE_HOURS,
-    DEFAULT_DISCHARGE_RATE_KW,
-    DEFAULT_CHARGE_RATE_KW,
-    DEFAULT_BATTERY_LOW_THRESHOLD,
+    DEFAULT_MAX_FORCE_CHARGE_PRICE,
+    DEFAULT_MIN_BATTERY_LEVEL,
+    DEFAULT_MIN_EXPORT_PRICE,
+    DEFAULT_MIN_FORCED_SELL_PRICE,
+    DEFAULT_MIN_SOLAR_THRESHOLD,
+    DOMAIN,
+    NUMBER_BATTERY_LOW_THRESHOLD,
+    NUMBER_CHARGE_RATE_KW,
+    NUMBER_DISCHARGE_RATE_KW,
+    NUMBER_FORCE_CHARGE_TARGET,
+    NUMBER_FORCED_DISCHARGE_HOURS,
+    NUMBER_MAX_FORCE_CHARGE_PRICE,
+    NUMBER_MIN_BATTERY_LEVEL,
+    NUMBER_MIN_FORCED_SELL_PRICE,
+    NUMBER_MIN_SOLAR_THRESHOLD,
+    SWITCH_ENABLE_FORCED_CHARGING,
+    SWITCH_ENABLE_FORCED_DISCHARGE,
+    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
 )
 from .energy_optimizer import EnergyOptimizer
-from .base_entity import BatteryTradingBaseEntity
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -119,7 +115,7 @@ class BatteryTradingBinarySensor(BatteryTradingBaseEntity, BinarySensorEntity):
         # Track additional entities beyond Nord Pool (coordinator handles Nord Pool)
         if self._tracked_entities and len(self._tracked_entities) > 1:
             @callback
-            def sensor_state_listener(event):
+            def sensor_state_listener(event):  # noqa: ARG001
                 """Handle state changes for non-Nord Pool entities."""
                 self.async_schedule_update_ha_state(True)
 

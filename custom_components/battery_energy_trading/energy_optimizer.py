@@ -1,11 +1,12 @@
 """Energy optimization logic for Battery Energy Trading."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Any
-import logging
 import hashlib
 import json
+import logging
+from datetime import datetime, timedelta
+from typing import Any
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class EnergyOptimizer:
         cache_data = {
             "method": method_name,
             "args": str(args),
-            "kwargs": {k: v for k, v in kwargs.items() if not isinstance(v, (datetime, list))},
+            "kwargs": {k: v for k, v in kwargs.items() if not isinstance(v, datetime | list)},
         }
         cache_str = json.dumps(cache_data, sort_keys=True)
         return hashlib.md5(cache_str.encode()).hexdigest()
@@ -53,9 +54,8 @@ class EnergyOptimizer:
             if datetime.now() - cached_time < self._cache_ttl:
                 _LOGGER.debug("Cache hit for key %s", cache_key[:8])
                 return cached_result
-            else:
-                _LOGGER.debug("Cache expired for key %s", cache_key[:8])
-                del self._cache[cache_key]
+            _LOGGER.debug("Cache expired for key %s", cache_key[:8])
+            del self._cache[cache_key]
         return None
 
     def _set_cached(self, cache_key: str, result: Any) -> None:
@@ -796,7 +796,7 @@ class EnergyOptimizer:
 
         # Energy per slot
         charge_energy_per_slot = charge_rate * slot_duration_hours
-        discharge_energy_per_slot = discharge_rate * slot_duration_hours
+        discharge_energy_per_slot = discharge_rate * slot_duration_hours  # noqa: F841
 
         # Find charging windows and matching discharge windows
         for charge_start_idx in range(len(raw_prices) - 2):
