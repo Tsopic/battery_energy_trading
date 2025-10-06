@@ -1,5 +1,5 @@
 # Testing requirements for Battery Energy Trading
-# Updated: 2025-10-02 - Modernized to latest versions
+# Updated: 2025-10-06 - Latest versions for Python 3.13+
 # Requires: Python >=3.13.2
 
 # Core testing framework

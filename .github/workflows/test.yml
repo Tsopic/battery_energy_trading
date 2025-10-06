@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.13"]
 
     steps:
       - name: Checkout code
@@ -47,7 +47,7 @@ jobs:
 
       - name: Upload coverage HTML artifact
         uses: actions/upload-artifact@v4
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.13'
         with:
           name: coverage-report
           path: htmlcov/
