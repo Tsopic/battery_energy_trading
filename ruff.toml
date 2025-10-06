@@ -1,6 +1,12 @@
 # Ruff configuration for Battery Energy Trading
 # https://docs.astral.sh/ruff/
 
+# Home Assistant standard line length
+line-length = 100
+
+# Target Python version
+target-version = "py311"
+
 [lint]
 # Enable pycodestyle (E), Pyflakes (F), isort (I), pyupgrade (UP), and bugbear (B)
 select = [
@@ -61,11 +67,3 @@ line-ending = "auto"
 
 # Respect magic trailing comma
 skip-magic-trailing-comma = false
-
-[target-version]
-# Matches pyproject.toml python version requirement
-python-version = "3.11"
-
-[line-length]
-# Home Assistant standard
-line-length = 100
