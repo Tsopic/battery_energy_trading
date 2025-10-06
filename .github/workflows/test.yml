@@ -56,6 +56,20 @@ jobs:
         run: |
           coverage report --fail-under=90
 
+      - name: Generate coverage badge
+        if: matrix.python-version == '3.12' && github.event_name == 'push'
+        run: |
+          pip install genbadge[coverage]
+          genbadge coverage -i coverage.xml -o coverage-badge.svg
+
+      - name: Comment coverage on PR
+        if: matrix.python-version == '3.12' && github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 90
+          MINIMUM_ORANGE: 70
+
   lint:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -72,16 +86,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff black isort
+          pip install ruff mypy bandit[toml]
 
-      - name: Run ruff
-        run: ruff check custom_components/battery_energy_trading/ || true
+      - name: Run ruff linter
+        run: ruff check custom_components/battery_energy_trading/
 
-      - name: Run black
-        run: black --check custom_components/battery_energy_trading/ || true
+      - name: Run ruff formatter check
+        run: ruff format --check custom_components/battery_energy_trading/
 
-      - name: Run isort
-        run: isort --check-only custom_components/battery_energy_trading/ || true
+      - name: Run mypy type checker
+        run: mypy custom_components/battery_energy_trading/ --ignore-missing-imports || true
+
+      - name: Run bandit security checker
+        run: bandit -r custom_components/battery_energy_trading/ -c pyproject.toml || true
 
   hassfest:
     name: Validate with hassfest

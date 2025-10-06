@@ -57,6 +57,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Battery Energy Trading sensors."""
+    # Get coordinator from hass.data
+    from .const import DOMAIN
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+
     nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
     battery_level_entity = entry.data[CONF_BATTERY_LEVEL_ENTITY]
     battery_capacity_entity = entry.data[CONF_BATTERY_CAPACITY_ENTITY]
@@ -65,10 +69,10 @@ async def async_setup_entry(
     optimizer = EnergyOptimizer()
 
     sensors = [
-        ConfigurationSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity),
-        ArbitrageOpportunitiesSensor(hass, entry, nordpool_entity, battery_capacity_entity, optimizer),
-        DischargeHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
-        ChargingHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
+        ConfigurationSensor(hass, entry, coordinator, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity),
+        ArbitrageOpportunitiesSensor(hass, entry, coordinator, nordpool_entity, battery_capacity_entity, optimizer),
+        DischargeHoursSensor(hass, entry, coordinator, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
+        ChargingHoursSensor(hass, entry, coordinator, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
     ]
 
     async_add_entities(sensors)
@@ -81,13 +85,14 @@ class BatteryTradingSensor(BatteryTradingBaseEntity, SensorEntity):
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         sensor_type: str,
         tracked_entities: list[str] | None = None,
     ) -> None:
         """Initialize the sensor."""
-        # Initialize base entity first
-        super().__init__(hass, entry, sensor_type)
+        # Initialize base entity with coordinator
+        super().__init__(hass, entry, sensor_type, coordinator)
 
         # Add sensor-specific attributes
         self._nordpool_entity = nordpool_entity
@@ -99,16 +104,21 @@ class BatteryTradingSensor(BatteryTradingBaseEntity, SensorEntity):
         """Handle entity which will be added."""
         await super().async_added_to_hass()
 
-        @callback
-        def sensor_state_listener(event):
-            """Handle state changes."""
-            self.async_schedule_update_ha_state(True)
+        # Track additional entities beyond Nord Pool (coordinator handles Nord Pool)
+        if self._tracked_entities and len(self._tracked_entities) > 1:
+            @callback
+            def sensor_state_listener(event):
+                """Handle state changes for non-Nord Pool entities."""
+                self.async_schedule_update_ha_state(True)
 
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, self._tracked_entities, sensor_state_listener
-            )
-        )
+            # Only track entities other than nordpool_entity
+            other_entities = [e for e in self._tracked_entities if e != self._nordpool_entity]
+            if other_entities:
+                self.async_on_remove(
+                    async_track_state_change_event(
+                        self.hass, other_entities, sensor_state_listener
+                    )
+                )
 
 
 class ConfigurationSensor(BatteryTradingSensor):
@@ -118,6 +128,7 @@ class ConfigurationSensor(BatteryTradingSensor):
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
@@ -125,7 +136,7 @@ class ConfigurationSensor(BatteryTradingSensor):
     ) -> None:
         """Initialize the configuration sensor."""
         # Use a minimal sensor type name for cleaner entity ID
-        super().__init__(hass, entry, nordpool_entity, "configuration", [])
+        super().__init__(hass, entry, coordinator, nordpool_entity, "configuration", [])
         self._nordpool_entity = nordpool_entity
         self._battery_level_entity = battery_level_entity
         self._battery_capacity_entity = battery_capacity_entity
@@ -166,12 +177,13 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_capacity_entity: str,
         optimizer: EnergyOptimizer,
     ) -> None:
         """Initialize the arbitrage sensor."""
-        super().__init__(hass, entry, nordpool_entity, SENSOR_ARBITRAGE_OPPORTUNITIES, [nordpool_entity, battery_capacity_entity])
+        super().__init__(hass, entry, coordinator, nordpool_entity, SENSOR_ARBITRAGE_OPPORTUNITIES, [nordpool_entity, battery_capacity_entity])
         self._battery_capacity_entity = battery_capacity_entity
         self._optimizer = optimizer
         self._attr_name = "Arbitrage Opportunities"
@@ -253,6 +265,7 @@ class DischargeHoursSensor(BatteryTradingSensor):
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
@@ -266,6 +279,7 @@ class DischargeHoursSensor(BatteryTradingSensor):
         super().__init__(
             hass,
             entry,
+            coordinator,
             nordpool_entity,
             SENSOR_DISCHARGE_HOURS,
             tracked,
@@ -391,6 +405,7 @@ class ChargingHoursSensor(BatteryTradingSensor):
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
@@ -404,6 +419,7 @@ class ChargingHoursSensor(BatteryTradingSensor):
         super().__init__(
             hass,
             entry,
+            coordinator,
             nordpool_entity,
             SENSOR_CHARGING_HOURS,
             tracked,

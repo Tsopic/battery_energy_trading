@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Battery Energy Trading Oppsett",
+        "description": "Konfigurer din batteristyring og energihandelsintegrasjon.",
+        "data": {
+          "nordpool_entity": "Nord Pool Prissensor",
+          "battery_level_entity": "Batterinivå Sensor (%)",
+          "battery_capacity_entity": "Batterikapasitet Sensor (kWh)",
+          "solar_power_entity": "Solenergi Sensor (W) - Valgfritt"
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Enhet ikke funnet. Vennligst sjekk enhets-ID.",
+      "nordpool_missing_raw_today": "Denne Nord Pool-sensoren har ikke det påkrevde 'raw_today' attributtet. Vennligst velg en gyldig Nord Pool prissensor (vanligvis kalt 'sensor.nordpool_kwh_...')."
+    },
+    "abort": {
+      "already_configured": "Denne integrasjonen er allerede konfigurert.",
+      "nordpool_not_found": "Nord Pool-integrasjon ikke funnet. Vennligst installer og konfigurer Nord Pool-integrasjonen (https://github.com/custom-components/nordpool) før du setter opp Battery Energy Trading."
+    }
+  }
+}

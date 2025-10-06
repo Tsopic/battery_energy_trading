@@ -23,9 +23,19 @@ from custom_components.battery_energy_trading.energy_optimizer import EnergyOpti
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry(mock_hass, mock_config_entry):
+async def test_async_setup_entry(mock_hass, mock_config_entry, mock_coordinator):
     """Test sensor platform setup."""
     async_add_entities = Mock()
+
+    # Setup coordinator in hass.data (normally done by __init__.py)
+    from custom_components.battery_energy_trading.const import DOMAIN
+    mock_hass.data[DOMAIN] = {
+        mock_config_entry.entry_id: {
+            "coordinator": mock_coordinator,
+            "data": mock_config_entry.data,
+            "options": mock_config_entry.options,
+        }
+    }
 
     await async_setup_entry(mock_hass, mock_config_entry, async_add_entities)
 
@@ -43,11 +53,12 @@ class TestBatteryTradingSensor:
     """Test BatteryTradingSensor base class."""
 
     @pytest.fixture
-    def sensor(self, mock_hass, mock_config_entry):
+    def sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a battery trading sensor."""
         return BatteryTradingSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             sensor_type="test_sensor",
         )
@@ -59,11 +70,12 @@ class TestBatteryTradingSensor:
         assert sensor._tracked_entities == ["sensor.nordpool"]
         assert sensor._attr_suggested_object_id == f"{DOMAIN}_test_sensor"
 
-    def test_init_with_tracked_entities(self, mock_hass, mock_config_entry):
+    def test_init_with_tracked_entities(self, mock_hass, mock_config_entry, mock_coordinator):
         """Test sensor initialization with custom tracked entities."""
         sensor = BatteryTradingSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             sensor_type="test_sensor",
             tracked_entities=["sensor.a", "sensor.b"],
@@ -71,8 +83,18 @@ class TestBatteryTradingSensor:
         assert sensor._tracked_entities == ["sensor.a", "sensor.b"]
 
     @pytest.mark.asyncio
-    async def test_async_added_to_hass(self, sensor):
+    async def test_async_added_to_hass(self, mock_hass, mock_config_entry, mock_coordinator):
         """Test state change listener registration."""
+        # Create sensor with multiple tracked entities (including nordpool)
+        sensor = BatteryTradingSensor(
+            hass=mock_hass,
+            entry=mock_config_entry,
+            coordinator=mock_coordinator,
+            nordpool_entity="sensor.nordpool",
+            sensor_type="test_sensor",
+            tracked_entities=["sensor.nordpool", "sensor.other1", "sensor.other2"],
+        )
+
         # Mock parent class method
         sensor.async_on_remove = Mock()
 
@@ -82,21 +104,23 @@ class TestBatteryTradingSensor:
             mock_track.return_value = Mock()
             await sensor.async_added_to_hass()
 
-            # Verify state change tracking was registered
+            # Verify state change tracking was registered for non-nordpool entities
             mock_track.assert_called_once()
             assert mock_track.call_args[0][0] == sensor.hass
-            assert mock_track.call_args[0][1] == sensor._tracked_entities
+            # Should only track entities other than nordpool (coordinator handles that)
+            assert mock_track.call_args[0][1] == ["sensor.other1", "sensor.other2"]
 
 
 class TestConfigurationSensor:
     """Test ConfigurationSensor."""
 
     @pytest.fixture
-    def config_sensor(self, mock_hass, mock_config_entry):
+    def config_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a configuration sensor."""
         return ConfigurationSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             battery_level_entity="sensor.battery_level",
             battery_capacity_entity="sensor.battery_capacity",
@@ -127,12 +151,13 @@ class TestConfigurationSensor:
         assert attrs["solar_forecast_entity"] == "sensor.solar_forecast"
 
     def test_extra_state_attributes_without_solar_forecast(
-        self, mock_hass, mock_config_entry
+        self, mock_hass, mock_config_entry, mock_coordinator
     ):
         """Test configuration sensor attributes without solar forecast."""
         config_sensor = ConfigurationSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             battery_level_entity="sensor.battery_level",
             battery_capacity_entity="sensor.battery_capacity",
@@ -143,7 +168,7 @@ class TestConfigurationSensor:
         assert "solar_forecast_entity" not in attrs
 
     def test_extra_state_attributes_with_solar_power_entity(
-        self, mock_hass, mock_config_entry
+        self, mock_hass, mock_config_entry, mock_coordinator
     ):
         """Test configuration sensor includes solar power entity from config."""
         # Add solar power entity to config entry data
@@ -155,6 +180,7 @@ class TestConfigurationSensor:
         config_sensor = ConfigurationSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             battery_level_entity="sensor.battery_level",
             battery_capacity_entity="sensor.battery_capacity",
@@ -169,12 +195,13 @@ class TestArbitrageOpportunitiesSensor:
     """Test ArbitrageOpportunitiesSensor."""
 
     @pytest.fixture
-    def arbitrage_sensor(self, mock_hass, mock_config_entry):
+    def arbitrage_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create an arbitrage opportunities sensor."""
         optimizer = EnergyOptimizer()
         return ArbitrageOpportunitiesSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             battery_capacity_entity="sensor.battery_capacity",
             optimizer=optimizer,
@@ -292,12 +319,13 @@ class TestDischargeHoursSensor:
     """Test DischargeHoursSensor."""
 
     @pytest.fixture
-    def discharge_sensor(self, mock_hass, mock_config_entry):
+    def discharge_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a discharge hours sensor."""
         optimizer = EnergyOptimizer()
         return DischargeHoursSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             battery_level_entity="sensor.battery_level",
             battery_capacity_entity="sensor.battery_capacity",
@@ -449,12 +477,13 @@ class TestChargingHoursSensor:
     """Test ChargingHoursSensor."""
 
     @pytest.fixture
-    def charging_sensor(self, mock_hass, mock_config_entry):
+    def charging_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a charging hours sensor."""
         optimizer = EnergyOptimizer()
         return ChargingHoursSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             battery_level_entity="sensor.battery_level",
             battery_capacity_entity="sensor.battery_capacity",

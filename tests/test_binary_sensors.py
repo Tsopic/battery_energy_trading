@@ -23,9 +23,19 @@ from custom_components.battery_energy_trading.energy_optimizer import EnergyOpti
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry(mock_hass, mock_config_entry):
+async def test_async_setup_entry(mock_hass, mock_config_entry, mock_coordinator):
     """Test binary sensor platform setup."""
     async_add_entities = Mock()
+
+    # Setup coordinator in hass.data (normally done by __init__.py)
+    from custom_components.battery_energy_trading.const import DOMAIN
+    mock_hass.data[DOMAIN] = {
+        mock_config_entry.entry_id: {
+            "coordinator": mock_coordinator,
+            "data": mock_config_entry.data,
+            "options": mock_config_entry.options,
+        }
+    }
 
     await async_setup_entry(mock_hass, mock_config_entry, async_add_entities)
 
@@ -42,9 +52,19 @@ async def test_async_setup_entry(mock_hass, mock_config_entry):
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_with_solar_power(mock_hass, mock_config_entry_sungrow):
+async def test_async_setup_entry_with_solar_power(mock_hass, mock_config_entry_sungrow, mock_coordinator):
     """Test binary sensor platform setup with solar power entity."""
     async_add_entities = Mock()
+
+    # Setup coordinator in hass.data (normally done by __init__.py)
+    from custom_components.battery_energy_trading.const import DOMAIN
+    mock_hass.data[DOMAIN] = {
+        mock_config_entry_sungrow.entry_id: {
+            "coordinator": mock_coordinator,
+            "data": mock_config_entry_sungrow.data,
+            "options": mock_config_entry_sungrow.options,
+        }
+    }
 
     await async_setup_entry(mock_hass, mock_config_entry_sungrow, async_add_entities)
 
@@ -57,12 +77,14 @@ class TestBatteryTradingBinarySensor:
     """Test BatteryTradingBinarySensor base class."""
 
     @pytest.fixture
-    def binary_sensor(self, mock_hass, mock_config_entry):
+    def binary_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a battery trading binary sensor."""
         return BatteryTradingBinarySensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             sensor_type="test_binary",
+            nordpool_entity="sensor.nordpool",
             tracked_entities=["sensor.test1", "sensor.test2"],
         )
 
@@ -92,12 +114,13 @@ class TestForcedDischargeSensor:
     """Test ForcedDischargeSensor."""
 
     @pytest.fixture
-    def forced_discharge_sensor(self, mock_hass, mock_config_entry):
+    def forced_discharge_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a forced discharge sensor."""
         optimizer = EnergyOptimizer()
         return ForcedDischargeSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             battery_level_entity="sensor.battery_level",
             battery_capacity_entity="sensor.battery_capacity",
@@ -283,10 +306,10 @@ class TestLowPriceSensor:
     """Test LowPriceSensor."""
 
     @pytest.fixture
-    def low_price_sensor(self, mock_hass, mock_config_entry):
+    def low_price_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a low price sensor."""
         return LowPriceSensor(
-            hass=mock_hass, entry=mock_config_entry, nordpool_entity="sensor.nordpool"
+            hass=mock_hass, entry=mock_config_entry, coordinator=mock_coordinator, nordpool_entity="sensor.nordpool"
         )
 
     def test_init(self, low_price_sensor):
@@ -337,10 +360,10 @@ class TestExportProfitableSensor:
     """Test ExportProfitableSensor."""
 
     @pytest.fixture
-    def export_profitable_sensor(self, mock_hass, mock_config_entry):
+    def export_profitable_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create an export profitable sensor."""
         return ExportProfitableSensor(
-            hass=mock_hass, entry=mock_config_entry, nordpool_entity="sensor.nordpool"
+            hass=mock_hass, entry=mock_config_entry, coordinator=mock_coordinator, nordpool_entity="sensor.nordpool"
         )
 
     def test_init(self, export_profitable_sensor):
@@ -383,12 +406,13 @@ class TestCheapestHoursSensor:
     """Test CheapestHoursSensor."""
 
     @pytest.fixture
-    def cheapest_hours_sensor(self, mock_hass, mock_config_entry):
+    def cheapest_hours_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a cheapest hours sensor."""
         optimizer = EnergyOptimizer()
         return CheapestHoursSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             nordpool_entity="sensor.nordpool",
             battery_level_entity="sensor.battery_level",
             battery_capacity_entity="sensor.battery_capacity",
@@ -494,11 +518,12 @@ class TestBatteryLowSensor:
     """Test BatteryLowSensor."""
 
     @pytest.fixture
-    def battery_low_sensor(self, mock_hass, mock_config_entry):
+    def battery_low_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a battery low sensor."""
         return BatteryLowSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             battery_level_entity="sensor.battery_level",
         )
 
@@ -573,11 +598,12 @@ class TestSolarAvailableSensor:
     """Test SolarAvailableSensor."""
 
     @pytest.fixture
-    def solar_available_sensor(self, mock_hass, mock_config_entry):
+    def solar_available_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
         """Create a solar available sensor."""
         return SolarAvailableSensor(
             hass=mock_hass,
             entry=mock_config_entry,
+            coordinator=mock_coordinator,
             solar_power_entity="sensor.solar_power",
         )
 

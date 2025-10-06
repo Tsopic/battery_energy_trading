@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch, MagicMock, AsyncMock
 def mock_hass():
     """Mock Home Assistant instance."""
     hass = MagicMock()
+    hass.data = {}  # Use real dict instead of MagicMock
     hass.states = MagicMock()
     hass.states.async_all = Mock(return_value=[])
     hass.states.get = Mock(return_value=None)
@@ -184,6 +185,20 @@ def mock_nord_pool_state():
     }
 
     return state
+
+
+@pytest.fixture
+def mock_coordinator():
+    """Mock DataUpdateCoordinator."""
+    coordinator = MagicMock()
+    coordinator.data = {
+        "raw_today": [],
+        "raw_tomorrow": None,
+        "current_price": 0.15,
+    }
+    coordinator.async_add_listener = Mock()
+    coordinator.async_remove_listener = Mock()
+    return coordinator
 
 
 @pytest.fixture

@@ -30,36 +30,36 @@ async def test_async_setup(mock_hass):
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry(mock_hass, mock_config_entry):
+async def test_async_setup_entry(mock_hass_with_nordpool, mock_config_entry):
     """Test async_setup_entry forwards platforms."""
-    mock_hass.config_entries.async_forward_entry_setups = AsyncMock()
+    mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
 
-    result = await async_setup_entry(mock_hass, mock_config_entry)
+    result = await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
 
     assert result is True
     # Verify domain data stored
-    assert DOMAIN in mock_hass.data
-    assert mock_config_entry.entry_id in mock_hass.data[DOMAIN]
-    assert mock_hass.data[DOMAIN][mock_config_entry.entry_id]["data"] == mock_config_entry.data
-    assert mock_hass.data[DOMAIN][mock_config_entry.entry_id]["options"] == mock_config_entry.options
+    assert DOMAIN in mock_hass_with_nordpool.data
+    assert mock_config_entry.entry_id in mock_hass_with_nordpool.data[DOMAIN]
+    assert mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]["data"] == mock_config_entry.data
+    assert mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]["options"] == mock_config_entry.options
 
     # Verify platforms forwarded
-    mock_hass.config_entries.async_forward_entry_setups.assert_called_once_with(
+    mock_hass_with_nordpool.config_entries.async_forward_entry_setups.assert_called_once_with(
         mock_config_entry, PLATFORMS
     )
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_initializes_domain_data(mock_hass, mock_config_entry):
+async def test_async_setup_entry_initializes_domain_data(mock_hass_with_nordpool, mock_config_entry):
     """Test async_setup_entry initializes domain data if not present."""
     # Ensure domain data not already set
-    mock_hass.data = {}
-    mock_hass.config_entries.async_forward_entry_setups = AsyncMock()
+    mock_hass_with_nordpool.data = {}
+    mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
 
-    result = await async_setup_entry(mock_hass, mock_config_entry)
+    result = await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
 
     assert result is True
-    assert DOMAIN in mock_hass.data
+    assert DOMAIN in mock_hass_with_nordpool.data
 
 
 @pytest.mark.asyncio
@@ -282,34 +282,34 @@ class TestDomainData:
     """Test domain data management."""
 
     @pytest.mark.asyncio
-    async def test_domain_data_structure(self, mock_hass, mock_config_entry):
+    async def test_domain_data_structure(self, mock_hass_with_nordpool, mock_config_entry):
         """Test domain data has correct structure."""
-        mock_hass.config_entries.async_forward_entry_setups = AsyncMock()
+        mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
 
-        await async_setup_entry(mock_hass, mock_config_entry)
+        await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
 
-        entry_data = mock_hass.data[DOMAIN][mock_config_entry.entry_id]
+        entry_data = mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]
         assert "data" in entry_data
         assert "options" in entry_data
         assert entry_data["data"] == mock_config_entry.data
         assert entry_data["options"] == mock_config_entry.options
 
     @pytest.mark.asyncio
-    async def test_multiple_entries(self, mock_hass, mock_config_entry, mock_config_entry_sungrow):
+    async def test_multiple_entries(self, mock_hass_with_nordpool_and_sungrow, mock_config_entry, mock_config_entry_sungrow):
         """Test multiple config entries are stored separately."""
-        mock_hass.config_entries.async_forward_entry_setups = AsyncMock()
+        mock_hass_with_nordpool_and_sungrow.config_entries.async_forward_entry_setups = AsyncMock()
 
-        await async_setup_entry(mock_hass, mock_config_entry)
-        await async_setup_entry(mock_hass, mock_config_entry_sungrow)
+        await async_setup_entry(mock_hass_with_nordpool_and_sungrow, mock_config_entry)
+        await async_setup_entry(mock_hass_with_nordpool_and_sungrow, mock_config_entry_sungrow)
 
         # Both entries should be in domain data
-        assert mock_config_entry.entry_id in mock_hass.data[DOMAIN]
-        assert mock_config_entry_sungrow.entry_id in mock_hass.data[DOMAIN]
+        assert mock_config_entry.entry_id in mock_hass_with_nordpool_and_sungrow.data[DOMAIN]
+        assert mock_config_entry_sungrow.entry_id in mock_hass_with_nordpool_and_sungrow.data[DOMAIN]
 
         # Verify data is separate
         assert (
-            mock_hass.data[DOMAIN][mock_config_entry.entry_id]["data"]
-            != mock_hass.data[DOMAIN][mock_config_entry_sungrow.entry_id]["data"]
+            mock_hass_with_nordpool_and_sungrow.data[DOMAIN][mock_config_entry.entry_id]["data"]
+            != mock_hass_with_nordpool_and_sungrow.data[DOMAIN][mock_config_entry_sungrow.entry_id]["data"]
         )
 
 
@@ -317,30 +317,30 @@ class TestIntegrationLifecycle:
     """Test integration setup and teardown lifecycle."""
 
     @pytest.mark.asyncio
-    async def test_full_lifecycle(self, mock_hass, mock_config_entry):
+    async def test_full_lifecycle(self, mock_hass_with_nordpool, mock_config_entry):
         """Test full setup and unload cycle."""
-        mock_hass.config_entries.async_forward_entry_setups = AsyncMock()
-        mock_hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+        mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
+        mock_hass_with_nordpool.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
         # Setup
-        setup_result = await async_setup_entry(mock_hass, mock_config_entry)
+        setup_result = await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
         assert setup_result is True
-        assert mock_config_entry.entry_id in mock_hass.data[DOMAIN]
+        assert mock_config_entry.entry_id in mock_hass_with_nordpool.data[DOMAIN]
 
         # Unload
-        unload_result = await async_unload_entry(mock_hass, mock_config_entry)
+        unload_result = await async_unload_entry(mock_hass_with_nordpool, mock_config_entry)
         assert unload_result is True
-        assert mock_config_entry.entry_id not in mock_hass.data[DOMAIN]
+        assert mock_config_entry.entry_id not in mock_hass_with_nordpool.data[DOMAIN]
 
     @pytest.mark.asyncio
-    async def test_setup_without_prior_async_setup(self, mock_hass, mock_config_entry):
+    async def test_setup_without_prior_async_setup(self, mock_hass_with_nordpool, mock_config_entry):
         """Test async_setup_entry works without prior async_setup call."""
         # Don't call async_setup first
-        mock_hass.data = {}  # Empty hass data
-        mock_hass.config_entries.async_forward_entry_setups = AsyncMock()
+        mock_hass_with_nordpool.data = {}  # Empty hass data
+        mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
 
-        result = await async_setup_entry(mock_hass, mock_config_entry)
+        result = await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
 
         assert result is True
-        assert DOMAIN in mock_hass.data
-        assert mock_config_entry.entry_id in mock_hass.data[DOMAIN]
+        assert DOMAIN in mock_hass_with_nordpool.data
+        assert mock_config_entry.entry_id in mock_hass_with_nordpool.data[DOMAIN]

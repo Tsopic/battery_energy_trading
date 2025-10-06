@@ -2,18 +2,22 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity, DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, VERSION
+
+if TYPE_CHECKING:
+    from .coordinator import BatteryEnergyTradingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class BatteryTradingBaseEntity(Entity):
+class BatteryTradingBaseEntity(CoordinatorEntity["BatteryEnergyTradingCoordinator"], Entity):
     """Base class for all Battery Energy Trading entities."""
 
     def __init__(
@@ -21,8 +25,22 @@ class BatteryTradingBaseEntity(Entity):
         hass: HomeAssistant,
         entry: ConfigEntry,
         entity_type: str,
+        coordinator: BatteryEnergyTradingCoordinator | None = None,
     ) -> None:
-        """Initialize the base entity."""
+        """Initialize the base entity.
+
+        Args:
+            hass: Home Assistant instance
+            entry: Config entry
+            entity_type: Type of entity (for unique ID)
+            coordinator: Data update coordinator (optional for entities that don't need it)
+        """
+        # Initialize CoordinatorEntity if coordinator provided
+        if coordinator:
+            super().__init__(coordinator)
+        else:
+            Entity.__init__(self)
+
         self.hass = hass
         self._entry = entry
         self._entity_type = entity_type

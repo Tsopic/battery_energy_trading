@@ -119,3 +119,23 @@ directory = "htmlcov"
 
 [tool.coverage.json]
 output = "coverage.json"
+
+[tool.bandit]
+# Bandit security linter configuration
+exclude_dirs = ["tests", ".venv", "htmlcov"]
+skips = [
+    "B101",  # assert_used - we use asserts appropriately
+    "B601",  # paramiko_calls - not applicable
+]
+
+[tool.mypy]
+# Type checking configuration
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = [
+    "tests/",
+    ".venv/",
+]
