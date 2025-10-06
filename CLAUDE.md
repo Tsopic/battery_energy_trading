@@ -341,3 +341,71 @@ See `docs/development/testing.md` for detailed testing documentation.
 - **Battery level not updating**: Verify battery level entity ID is correct and updating
 - **Solar override not working**: Check solar power entity reports watts (not kW) and threshold is set appropriately
 - **Discharge not triggering**: Verify prices exceed `min_forced_sell_price` threshold and forced discharge switch is ON
+
+## Documentation Workflow
+
+### Documentation Structure
+
+The project uses a hierarchical documentation structure:
+
+```
+docs/
+├── README.md                    # Master documentation index
+├── user-guide/                  # End-user documentation
+├── integrations/                # Third-party integration guides
+├── development/                 # Developer documentation
+│   └── history/                 # Historical implementation logs
+└── api/                         # API reference (in development)
+```
+
+**Key documentation files**:
+- `README.md` - Project overview and quick start
+- `INSTALLATION.md` - Installation guide (HACS, pip, manual)
+- `CHANGELOG.md` - Version history
+- `docs/DOCUMENTATION_GUIDELINES.md` - Documentation standards and workflow
+
+### When Creating Documentation
+
+1. **Choose the right location**:
+   - User guides → `docs/user-guide/`
+   - Integration guides → `docs/integrations/`
+   - Developer docs → `docs/development/`
+   - Implementation logs → `docs/development/history/`
+
+2. **Follow naming conventions**:
+   - Use kebab-case: `dashboard-setup.md`
+   - Be descriptive: `sungrow-integration-guide.md`
+   - Historical docs: `implementation-log-2025-10.md`
+
+3. **Update index files**:
+   - Add entry to directory `README.md`
+   - Update `docs/README.md` if major document
+   - Link from related documentation
+
+4. **Use relative links**:
+   - `[Testing Guide](../development/testing.md)`
+   - `[Installation](../../INSTALLATION.md)`
+
+### When Archiving Documentation
+
+Move to `docs/development/history/` when:
+- Implementation is complete
+- Document is a historical log/diary
+- Information is context, not current guidance
+
+**Archive process**:
+1. Move file to `docs/development/history/`
+2. Add date stamp: `document-name-2025-10.md`
+3. Update all cross-references
+4. Update index files
+
+### Before Each Release
+
+- [ ] Update `CHANGELOG.md` with changes
+- [ ] Review user-facing documentation
+- [ ] Update version in `manifest.json` and `pyproject.toml`
+- [ ] Verify installation guide is current
+- [ ] Test all code examples
+- [ ] Update `docs/README.md` if structure changed
+
+See `docs/DOCUMENTATION_GUIDELINES.md` for complete documentation standards.

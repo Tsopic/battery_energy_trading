@@ -239,7 +239,14 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
 
 
 class DischargeHoursSensor(BatteryTradingSensor):
-    """Sensor for selected discharge hours with 15-min slot support."""
+    """Sensor for selected discharge time slots.
+
+    NOTE: Despite 'hours' in the entity ID, this sensor operates on 15-minute
+    time slots from Nord Pool pricing. The sensor selects optimal 15-minute slots
+    for discharging based on highest prices. The max_hours parameter controls the
+    total duration limit across all selected slots (e.g., max_hours=2 means select
+    up to 8 fifteen-minute slots totaling 2 hours of discharge time).
+    """
 
     def __init__(
         self,
@@ -371,7 +378,13 @@ class DischargeHoursSensor(BatteryTradingSensor):
 
 
 class ChargingHoursSensor(BatteryTradingSensor):
-    """Sensor for selected charging hours with 15-min slot support."""
+    """Sensor for selected charging time slots.
+
+    NOTE: Despite 'hours' in the entity ID, this sensor operates on 15-minute
+    time slots from Nord Pool pricing. The sensor selects optimal 15-minute slots
+    for charging based on lowest prices. Slots are selected to reach the target
+    battery level using the cheapest available 15-minute periods.
+    """
 
     def __init__(
         self,

@@ -272,7 +272,12 @@ class ExportProfitableSensor(BatteryTradingBinarySensor):
 
 
 class CheapestHoursSensor(BatteryTradingBinarySensor):
-    """Binary sensor for cheapest hours detection."""
+    """Binary sensor for cheapest time slot detection.
+
+    NOTE: Despite 'hours' in the entity ID, this sensor operates on 15-minute
+    time slots. Returns ON when the current 15-minute period is among the cheapest
+    slots selected for grid charging based on Nord Pool pricing.
+    """
 
     def __init__(
         self,
@@ -294,7 +299,7 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
         self._battery_capacity_entity = battery_capacity_entity
         self._solar_forecast_entity = solar_forecast_entity
         self._optimizer = optimizer
-        self._attr_name = "Cheapest Hours"
+        self._attr_name = "Cheapest Slot Active"  # Clearer: indicates current 15-min slot status
         self._attr_icon = "mdi:clock-check"
 
     @property

@@ -58,7 +58,7 @@ async def async_setup_entry(
         BatteryTradingNumber(
             entry,
             NUMBER_FORCED_DISCHARGE_HOURS,
-            "Forced Discharge Hours",
+            "Max Discharge Duration",  # Clearer: it's a duration limit across slots
             0,
             24,
             1,
@@ -102,7 +102,7 @@ async def async_setup_entry(
         BatteryTradingNumber(
             entry,
             NUMBER_FORCE_CHARGING_HOURS,
-            "Force Charging Hours",
+            "Max Charging Duration",  # Clearer: it's a duration limit across slots
             0,
             24,
             1,
