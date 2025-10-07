@@ -1,4 +1,5 @@
 """Tests for __init__.py integration setup."""
+import inspect
 import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
 
@@ -13,6 +14,17 @@ from custom_components.battery_energy_trading import (
     PLATFORMS,
     SERVICE_SYNC_SUNGROW_PARAMS,
 )
+
+
+def create_service_call(hass, domain, service, data):
+    """Create ServiceCall with backward compatibility for different HA versions."""
+    # Check if ServiceCall accepts hass parameter (HA 2025.10+)
+    sig = inspect.signature(ServiceCall.__init__)
+    if 'hass' in sig.parameters:
+        return ServiceCall(hass=hass, domain=domain, service=service, data=data)
+    else:
+        # Older versions don't require hass
+        return ServiceCall(domain=domain, service=service, data=data)
 
 
 @pytest.mark.asyncio
@@ -159,10 +171,9 @@ class TestSyncSungrowParamsService:
             )
 
             # Call service
-            call = ServiceCall(
-                domain=DOMAIN,
-                service=SERVICE_SYNC_SUNGROW_PARAMS,
-                data={"entry_id": "test_sungrow_entry"},
+            call = create_service_call(
+                mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS,
+                {"entry_id": "test_sungrow_entry"}
             )
             await service_handler(call)
 
@@ -202,11 +213,7 @@ class TestSyncSungrowParamsService:
             )
 
             # Call service without entry_id
-            call = ServiceCall(
-                domain=DOMAIN,
-                service=SERVICE_SYNC_SUNGROW_PARAMS,
-                data={},
-            )
+            call = create_service_call(mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS, {})
             await service_handler(call)
 
             # Should have found and updated the auto-detected entry
@@ -225,11 +232,7 @@ class TestSyncSungrowParamsService:
         mock_hass.config_entries.async_entries = Mock(return_value=[mock_config_entry])
 
         # Call service without entry_id
-        call = ServiceCall(
-            domain=DOMAIN,
-            service=SERVICE_SYNC_SUNGROW_PARAMS,
-            data={},
-        )
+        call = create_service_call(mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS, {})
         await service_handler(call)
 
         # Should not try to update entry (logs error instead)
@@ -247,10 +250,8 @@ class TestSyncSungrowParamsService:
         mock_hass.config_entries.async_get_entry = Mock(return_value=None)
 
         # Call service with non-existent entry_id
-        call = ServiceCall(
-            domain=DOMAIN,
-            service=SERVICE_SYNC_SUNGROW_PARAMS,
-            data={"entry_id": "non_existent"},
+        call = create_service_call(
+            mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS, {"entry_id": "non_existent"}
         )
         await service_handler(call)
 
@@ -285,10 +286,9 @@ class TestSyncSungrowParamsService:
                 }
             )
 
-            call = ServiceCall(
-                domain=DOMAIN,
-                service=SERVICE_SYNC_SUNGROW_PARAMS,
-                data={"entry_id": "test_sungrow_entry"},
+            call = create_service_call(
+                mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS,
+                {"entry_id": "test_sungrow_entry"}
             )
             await service_handler(call)
 
