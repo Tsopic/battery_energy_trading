@@ -1,45 +1,49 @@
 """Sensor platform for Battery Energy Trading."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import logging
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
+from .base_entity import BatteryTradingBaseEntity
 from .const import (
-    DOMAIN,
-    VERSION,
-    CONF_NORDPOOL_ENTITY,
-    CONF_BATTERY_LEVEL_ENTITY,
     CONF_BATTERY_CAPACITY_ENTITY,
+    CONF_BATTERY_LEVEL_ENTITY,
+    CONF_NORDPOOL_ENTITY,
     CONF_SOLAR_FORECAST_ENTITY,
-    SENSOR_ARBITRAGE_OPPORTUNITIES,
-    SENSOR_DISCHARGE_HOURS,
-    SENSOR_CHARGING_HOURS,
-    SENSOR_PROFITABLE_HOURS,
-    SENSOR_ECONOMICAL_HOURS,
-    NUMBER_MIN_FORCED_SELL_PRICE,
-    NUMBER_MAX_FORCE_CHARGE_PRICE,
-    NUMBER_FORCE_CHARGE_TARGET,
-    NUMBER_FORCED_DISCHARGE_HOURS,
-    NUMBER_DISCHARGE_RATE_KW,
-    NUMBER_CHARGE_RATE_KW,
-    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
-    DEFAULT_MIN_FORCED_SELL_PRICE,
-    DEFAULT_MAX_FORCE_CHARGE_PRICE,
+    CONF_SOLAR_POWER_ENTITY,
+    DEFAULT_BATTERY_EFFICIENCY,
+    DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_DISCHARGE_RATE_KW,
     DEFAULT_FORCE_CHARGE_TARGET,
     DEFAULT_FORCED_DISCHARGE_HOURS,
-    DEFAULT_DISCHARGE_RATE_KW,
-    DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_MAX_FORCE_CHARGE_PRICE,
     DEFAULT_MIN_ARBITRAGE_PROFIT,
+    DEFAULT_MIN_BATTERY_LEVEL,
+    DEFAULT_MIN_FORCED_SELL_PRICE,
+    DOMAIN,
+    NUMBER_BATTERY_EFFICIENCY,
+    NUMBER_CHARGE_RATE_KW,
+    NUMBER_DISCHARGE_RATE_KW,
+    NUMBER_FORCE_CHARGE_TARGET,
+    NUMBER_FORCED_DISCHARGE_HOURS,
+    NUMBER_MAX_FORCE_CHARGE_PRICE,
+    NUMBER_MIN_ARBITRAGE_PROFIT,
+    NUMBER_MIN_BATTERY_LEVEL,
+    NUMBER_MIN_FORCED_SELL_PRICE,
+    SENSOR_ARBITRAGE_OPPORTUNITIES,
+    SENSOR_CHARGING_HOURS,
+    SENSOR_DISCHARGE_HOURS,
+    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
 )
 from .energy_optimizer import EnergyOptimizer
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +54,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Battery Energy Trading sensors."""
+    # Get coordinator from hass.data
+    from .const import DOMAIN
+
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+
     nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
     battery_level_entity = entry.data[CONF_BATTERY_LEVEL_ENTITY]
     battery_capacity_entity = entry.data[CONF_BATTERY_CAPACITY_ENTITY]
@@ -58,84 +67,83 @@ async def async_setup_entry(
     optimizer = EnergyOptimizer()
 
     sensors = [
-        ConfigurationSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity),
-        ArbitrageOpportunitiesSensor(hass, entry, nordpool_entity, battery_capacity_entity, optimizer),
-        DischargeHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
-        ChargingHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
+        ConfigurationSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            battery_level_entity,
+            battery_capacity_entity,
+            solar_forecast_entity,
+        ),
+        ArbitrageOpportunitiesSensor(
+            hass, entry, coordinator, nordpool_entity, battery_capacity_entity, optimizer
+        ),
+        DischargeHoursSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            battery_level_entity,
+            battery_capacity_entity,
+            solar_forecast_entity,
+            optimizer,
+        ),
+        ChargingHoursSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            battery_level_entity,
+            battery_capacity_entity,
+            solar_forecast_entity,
+            optimizer,
+        ),
     ]
 
     async_add_entities(sensors)
 
 
-class BatteryTradingSensor(SensorEntity):
+class BatteryTradingSensor(BatteryTradingBaseEntity, SensorEntity):
     """Base class for Battery Energy Trading sensors."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         sensor_type: str,
         tracked_entities: list[str] | None = None,
     ) -> None:
         """Initialize the sensor."""
-        self.hass = hass
-        self._entry = entry
+        # Initialize base entity with coordinator
+        super().__init__(hass, entry, sensor_type, coordinator)
+
+        # Add sensor-specific attributes
         self._nordpool_entity = nordpool_entity
         self._sensor_type = sensor_type
         self._tracked_entities = tracked_entities or [nordpool_entity]
-        self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{sensor_type}"
         self._attr_suggested_object_id = f"{DOMAIN}_{sensor_type}"
-        self._attr_has_entity_name = True
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="Battery Energy Trading",
-            manufacturer="Battery Energy Trading",
-            model="Energy Optimizer",
-            sw_version=VERSION,
-        )
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""
         await super().async_added_to_hass()
 
-        @callback
-        def sensor_state_listener(event):
-            """Handle state changes."""
-            self.async_schedule_update_ha_state(True)
+        # Track additional entities beyond Nord Pool (coordinator handles Nord Pool)
+        if self._tracked_entities and len(self._tracked_entities) > 1:
 
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, self._tracked_entities, sensor_state_listener
-            )
-        )
+            @callback
+            def sensor_state_listener(event):  # noqa: ARG001
+                """Handle state changes for non-Nord Pool entities."""
+                self.async_schedule_update_ha_state(True)
 
-    def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
-        """Get float value from entity state."""
-        if not entity_id:
-            return default
-
-        state = self.hass.states.get(entity_id)
-        if not state or state.state in ("unknown", "unavailable"):
-            return default
-
-        try:
-            return float(state.state)
-        except (ValueError, TypeError):
-            return default
-
-    def _get_number_entity_value(self, number_type: str, default: float) -> float:
-        """Get value from number entity."""
-        entity_id = f"number.{DOMAIN}_{self._entry.entry_id}_{number_type}"
-        return self._get_float_state(entity_id, default)
-
-    def _get_switch_state(self, switch_type: str) -> bool:
-        """Get switch state."""
-        entity_id = f"switch.{DOMAIN}_{self._entry.entry_id}_{switch_type}"
-        state = self.hass.states.get(entity_id)
-        if not state:
-            return True  # Default to enabled if switch not found
-        return state.state == "on"
+            # Only track entities other than nordpool_entity
+            other_entities = [e for e in self._tracked_entities if e != self._nordpool_entity]
+            if other_entities:
+                self.async_on_remove(
+                    async_track_state_change_event(self.hass, other_entities, sensor_state_listener)
+                )
 
 
 class ConfigurationSensor(BatteryTradingSensor):
@@ -145,6 +153,7 @@ class ConfigurationSensor(BatteryTradingSensor):
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
@@ -152,7 +161,7 @@ class ConfigurationSensor(BatteryTradingSensor):
     ) -> None:
         """Initialize the configuration sensor."""
         # Use a minimal sensor type name for cleaner entity ID
-        super().__init__(hass, entry, nordpool_entity, "configuration", [])
+        super().__init__(hass, entry, coordinator, nordpool_entity, "configuration", [])
         self._nordpool_entity = nordpool_entity
         self._battery_level_entity = battery_level_entity
         self._battery_capacity_entity = battery_capacity_entity
@@ -193,12 +202,20 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_capacity_entity: str,
         optimizer: EnergyOptimizer,
     ) -> None:
         """Initialize the arbitrage sensor."""
-        super().__init__(hass, entry, nordpool_entity, SENSOR_ARBITRAGE_OPPORTUNITIES, [nordpool_entity, battery_capacity_entity])
+        super().__init__(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            SENSOR_ARBITRAGE_OPPORTUNITIES,
+            [nordpool_entity, battery_capacity_entity],
+        )
         self._battery_capacity_entity = battery_capacity_entity
         self._optimizer = optimizer
         self._attr_name = "Arbitrage Opportunities"
@@ -217,11 +234,19 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
                 return "Insufficient data"
 
             battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+            min_profit = self._get_number_entity_value(
+                NUMBER_MIN_ARBITRAGE_PROFIT, DEFAULT_MIN_ARBITRAGE_PROFIT
+            )
+            efficiency = (
+                self._get_number_entity_value(NUMBER_BATTERY_EFFICIENCY, DEFAULT_BATTERY_EFFICIENCY)
+                / 100.0
+            )
 
             opportunities = self._optimizer.calculate_arbitrage_opportunities(
                 raw_today,
                 battery_capacity,
-                min_profit_threshold=DEFAULT_MIN_ARBITRAGE_PROFIT,
+                efficiency=efficiency,
+                min_profit_threshold=min_profit,
             )
 
             if opportunities:
@@ -245,11 +270,19 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
             return {}
 
         battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
+        min_profit = self._get_number_entity_value(
+            NUMBER_MIN_ARBITRAGE_PROFIT, DEFAULT_MIN_ARBITRAGE_PROFIT
+        )
+        efficiency = (
+            self._get_number_entity_value(NUMBER_BATTERY_EFFICIENCY, DEFAULT_BATTERY_EFFICIENCY)
+            / 100.0
+        )
 
         opportunities = self._optimizer.calculate_arbitrage_opportunities(
             raw_today,
             battery_capacity,
-            min_profit_threshold=DEFAULT_MIN_ARBITRAGE_PROFIT,
+            efficiency=efficiency,
+            min_profit_threshold=min_profit,
         )
 
         return {
@@ -261,12 +294,20 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
 
 
 class DischargeHoursSensor(BatteryTradingSensor):
-    """Sensor for selected discharge hours with 15-min slot support."""
+    """Sensor for selected discharge time slots.
+
+    NOTE: Despite 'hours' in the entity ID, this sensor operates on 15-minute
+    time slots from Nord Pool pricing. The sensor selects optimal 15-minute slots
+    for discharging based on highest prices. The max_hours parameter controls the
+    total duration limit across all selected slots (e.g., max_hours=2 means select
+    up to 8 fifteen-minute slots totaling 2 hours of discharge time).
+    """
 
     def __init__(
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
@@ -280,6 +321,7 @@ class DischargeHoursSensor(BatteryTradingSensor):
         super().__init__(
             hass,
             entry,
+            coordinator,
             nordpool_entity,
             SENSOR_DISCHARGE_HOURS,
             tracked,
@@ -371,6 +413,9 @@ class DischargeHoursSensor(BatteryTradingSensor):
         forced_discharge_hours = self._get_number_entity_value(
             NUMBER_FORCED_DISCHARGE_HOURS, DEFAULT_FORCED_DISCHARGE_HOURS
         )
+        min_battery_level = self._get_number_entity_value(
+            NUMBER_MIN_BATTERY_LEVEL, DEFAULT_MIN_BATTERY_LEVEL
+        )
 
         # 0 = unlimited (use battery capacity limit only)
         max_hours = None if forced_discharge_hours == 0 else forced_discharge_hours
@@ -385,16 +430,24 @@ class DischargeHoursSensor(BatteryTradingSensor):
             raw_tomorrow=raw_tomorrow,
             solar_forecast_data=solar_forecast_data,
             multiday_enabled=multiday_enabled,
+            min_battery_reserve_percent=min_battery_level,
         )
 
 
 class ChargingHoursSensor(BatteryTradingSensor):
-    """Sensor for selected charging hours with 15-min slot support."""
+    """Sensor for selected charging time slots.
+
+    NOTE: Despite 'hours' in the entity ID, this sensor operates on 15-minute
+    time slots from Nord Pool pricing. The sensor selects optimal 15-minute slots
+    for charging based on lowest prices. Slots are selected to reach the target
+    battery level using the cheapest available 15-minute periods.
+    """
 
     def __init__(
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
@@ -408,6 +461,7 @@ class ChargingHoursSensor(BatteryTradingSensor):
         super().__init__(
             hass,
             entry,
+            coordinator,
             nordpool_entity,
             SENSOR_CHARGING_HOURS,
             tracked,
@@ -495,9 +549,7 @@ class ChargingHoursSensor(BatteryTradingSensor):
         target_level = self._get_number_entity_value(
             NUMBER_FORCE_CHARGE_TARGET, DEFAULT_FORCE_CHARGE_TARGET
         )
-        charge_rate = self._get_number_entity_value(
-            NUMBER_CHARGE_RATE_KW, DEFAULT_CHARGE_RATE_KW
-        )
+        charge_rate = self._get_number_entity_value(NUMBER_CHARGE_RATE_KW, DEFAULT_CHARGE_RATE_KW)
 
         return self._optimizer.select_charging_slots(
             raw_today,

@@ -1,0 +1,25 @@
+# Include metadata files
+include README.md
+include LICENSE
+include CHANGELOG.md
+include CLAUDE.md
+
+# Include all documentation
+recursive-include docs *.md *.png *.jpg
+
+# Include custom component files
+recursive-include custom_components/battery_energy_trading *.py
+include custom_components/battery_energy_trading/manifest.json
+recursive-include custom_components/battery_energy_trading/translations *.json
+
+# Include dashboard files
+recursive-include dashboards *.yaml
+
+# Include test files for development
+recursive-include tests *.py
+
+# Exclude compiled Python files
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude .DS_Store

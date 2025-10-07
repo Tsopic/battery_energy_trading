@@ -1,4 +1,5 @@
 """Switch platform for Battery Energy Trading."""
+
 from __future__ import annotations
 
 import logging
@@ -13,18 +14,19 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
     DOMAIN,
-    VERSION,
+    SWITCH_ENABLE_EXPORT_MANAGEMENT,
     SWITCH_ENABLE_FORCED_CHARGING,
     SWITCH_ENABLE_FORCED_DISCHARGE,
-    SWITCH_ENABLE_EXPORT_MANAGEMENT,
     SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
+    VERSION,
 )
+
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
+    hass: HomeAssistant,  # noqa: ARG001
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
@@ -113,13 +115,13 @@ class BatteryTradingSwitch(SwitchEntity, RestoreEntity):
             "switch_type": self._switch_type,
         }
 
-    async def async_turn_on(self, **kwargs: Any) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:  # noqa: ARG002
         """Turn the switch on."""
         self._attr_is_on = True
         self.async_write_ha_state()
         _LOGGER.info("Enabled %s", self._attr_name)
 
-    async def async_turn_off(self, **kwargs: Any) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:  # noqa: ARG002
         """Turn the switch off."""
         self._attr_is_on = False
         self.async_write_ha_state()

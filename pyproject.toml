@@ -1,0 +1,141 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "battery-energy-trading"
+version = "0.13.0"
+description = "Home Assistant custom integration for intelligent battery management and energy trading optimization"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    {name = "Tsopic", email = "tsopic@users.noreply.github.com"}
+]
+keywords = [
+    "home-assistant",
+    "custom-component",
+    "battery",
+    "energy-trading",
+    "nord-pool",
+    "solar",
+    "optimization"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Home Automation",
+]
+
+# Runtime dependencies
+dependencies = []
+
+[project.optional-dependencies]
+# Development and testing dependencies
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "pytest-homeassistant-custom-component>=0.13.0",
+]
+
+# Testing only (for CI/CD)
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "pytest-homeassistant-custom-component>=0.13.0",
+    "homeassistant>=2024.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Tsopic/battery_energy_trading"
+Documentation = "https://github.com/Tsopic/battery_energy_trading"
+Repository = "https://github.com/Tsopic/battery_energy_trading"
+"Bug Tracker" = "https://github.com/Tsopic/battery_energy_trading/issues"
+Changelog = "https://github.com/Tsopic/battery_energy_trading/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["custom_components.battery_energy_trading*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"custom_components.battery_energy_trading" = [
+    "manifest.json",
+    "translations/*.json",
+    "*.yaml",
+    "*.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+
+[tool.coverage.run]
+source = ["custom_components/battery_energy_trading"]
+branch = true
+omit = [
+    "tests/*",
+    "custom_components/battery_energy_trading/__pycache__/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+# Target: 90% coverage
+fail_under = 90
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.json]
+output = "coverage.json"
+
+[tool.bandit]
+# Bandit security linter configuration
+exclude_dirs = ["tests", ".venv", "htmlcov"]
+skips = [
+    "B101",  # assert_used - we use asserts appropriately
+    "B601",  # paramiko_calls - not applicable
+]
+
+[tool.mypy]
+# Type checking configuration
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = [
+    "tests/",
+    ".venv/",
+]

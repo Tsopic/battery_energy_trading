@@ -1,54 +1,54 @@
 """Binary sensor platform for Battery Energy Trading."""
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
+from .base_entity import BatteryTradingBaseEntity
 from .const import (
-    DOMAIN,
-    VERSION,
-    CONF_NORDPOOL_ENTITY,
-    CONF_BATTERY_LEVEL_ENTITY,
-    CONF_BATTERY_CAPACITY_ENTITY,
-    CONF_SOLAR_POWER_ENTITY,
-    CONF_SOLAR_FORECAST_ENTITY,
+    BINARY_SENSOR_BATTERY_LOW,
+    BINARY_SENSOR_CHEAPEST_HOURS,
+    BINARY_SENSOR_EXPORT_PROFITABLE,
     BINARY_SENSOR_FORCED_DISCHARGE,
     BINARY_SENSOR_LOW_PRICE,
-    BINARY_SENSOR_EXPORT_PROFITABLE,
-    BINARY_SENSOR_CHEAPEST_HOURS,
-    BINARY_SENSOR_BATTERY_LOW,
     BINARY_SENSOR_SOLAR_AVAILABLE,
-    NUMBER_MIN_EXPORT_PRICE,
-    NUMBER_MIN_FORCED_SELL_PRICE,
-    NUMBER_MAX_FORCE_CHARGE_PRICE,
-    NUMBER_MIN_BATTERY_LEVEL,
-    NUMBER_MIN_SOLAR_THRESHOLD,
-    NUMBER_FORCE_CHARGE_TARGET,
-    NUMBER_FORCED_DISCHARGE_HOURS,
-    NUMBER_DISCHARGE_RATE_KW,
-    NUMBER_CHARGE_RATE_KW,
-    SWITCH_ENABLE_FORCED_CHARGING,
-    SWITCH_ENABLE_FORCED_DISCHARGE,
-    SWITCH_ENABLE_EXPORT_MANAGEMENT,
-    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
-    DEFAULT_MIN_EXPORT_PRICE,
-    DEFAULT_MIN_FORCED_SELL_PRICE,
-    DEFAULT_MAX_FORCE_CHARGE_PRICE,
-    DEFAULT_MIN_BATTERY_LEVEL,
-    DEFAULT_MIN_SOLAR_THRESHOLD,
+    CONF_BATTERY_CAPACITY_ENTITY,
+    CONF_BATTERY_LEVEL_ENTITY,
+    CONF_NORDPOOL_ENTITY,
+    CONF_SOLAR_FORECAST_ENTITY,
+    CONF_SOLAR_POWER_ENTITY,
+    DEFAULT_BATTERY_LOW_THRESHOLD,
+    DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_DISCHARGE_RATE_KW,
     DEFAULT_FORCE_CHARGE_TARGET,
     DEFAULT_FORCED_DISCHARGE_HOURS,
-    DEFAULT_DISCHARGE_RATE_KW,
-    DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_MAX_FORCE_CHARGE_PRICE,
+    DEFAULT_MIN_BATTERY_LEVEL,
+    DEFAULT_MIN_EXPORT_PRICE,
+    DEFAULT_MIN_FORCED_SELL_PRICE,
+    DEFAULT_MIN_SOLAR_THRESHOLD,
+    DOMAIN,
+    NUMBER_BATTERY_LOW_THRESHOLD,
+    NUMBER_CHARGE_RATE_KW,
+    NUMBER_DISCHARGE_RATE_KW,
+    NUMBER_FORCE_CHARGE_TARGET,
+    NUMBER_FORCED_DISCHARGE_HOURS,
+    NUMBER_MAX_FORCE_CHARGE_PRICE,
+    NUMBER_MIN_BATTERY_LEVEL,
+    NUMBER_MIN_FORCED_SELL_PRICE,
+    NUMBER_MIN_SOLAR_THRESHOLD,
+    SWITCH_ENABLE_FORCED_CHARGING,
+    SWITCH_ENABLE_FORCED_DISCHARGE,
+    SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
 )
 from .energy_optimizer import EnergyOptimizer
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +59,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Battery Energy Trading binary sensors."""
+    # Get coordinator from hass.data
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+
     nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
     battery_level_entity = entry.data[CONF_BATTERY_LEVEL_ENTITY]
     battery_capacity_entity = entry.data[CONF_BATTERY_CAPACITY_ENTITY]
@@ -69,89 +72,77 @@ async def async_setup_entry(
 
     sensors = [
         ForcedDischargeSensor(
-            hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity,
-            solar_power_entity, solar_forecast_entity, optimizer
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            battery_level_entity,
+            battery_capacity_entity,
+            solar_power_entity,
+            solar_forecast_entity,
+            optimizer,
         ),
-        LowPriceSensor(hass, entry, nordpool_entity),
-        ExportProfitableSensor(hass, entry, nordpool_entity),
-        CheapestHoursSensor(hass, entry, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
-        BatteryLowSensor(hass, entry, battery_level_entity),
+        LowPriceSensor(hass, entry, coordinator, nordpool_entity),
+        ExportProfitableSensor(hass, entry, coordinator, nordpool_entity),
+        CheapestHoursSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            battery_level_entity,
+            battery_capacity_entity,
+            solar_forecast_entity,
+            optimizer,
+        ),
+        BatteryLowSensor(hass, entry, coordinator, battery_level_entity),
     ]
 
     if solar_power_entity:
-        sensors.append(SolarAvailableSensor(hass, entry, solar_power_entity))
+        sensors.append(SolarAvailableSensor(hass, entry, coordinator, solar_power_entity))
 
     async_add_entities(sensors)
 
 
-class BatteryTradingBinarySensor(BinarySensorEntity):
+class BatteryTradingBinarySensor(BatteryTradingBaseEntity, BinarySensorEntity):
     """Base class for Battery Energy Trading binary sensors."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         sensor_type: str,
-        tracked_entities: list[str],
+        nordpool_entity: str,
+        tracked_entities: list[str] | None = None,
     ) -> None:
         """Initialize the binary sensor."""
-        self.hass = hass
-        self._entry = entry
+        # Initialize base entity with coordinator
+        super().__init__(hass, entry, sensor_type, coordinator)
+
+        # Add binary sensor-specific attributes
+        self._nordpool_entity = nordpool_entity
         self._sensor_type = sensor_type
-        self._tracked_entities = tracked_entities
-        self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{sensor_type}"
+        self._tracked_entities = tracked_entities or [nordpool_entity]
         self._attr_suggested_object_id = f"{DOMAIN}_{sensor_type}"
-        self._attr_has_entity_name = True
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="Battery Energy Trading",
-            manufacturer="Battery Energy Trading",
-            model="Energy Optimizer",
-            sw_version=VERSION,
-        )
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""
         await super().async_added_to_hass()
 
-        @callback
-        def sensor_state_listener(event):
-            """Handle state changes."""
-            self.async_schedule_update_ha_state(True)
+        # Track additional entities beyond Nord Pool (coordinator handles Nord Pool)
+        if self._tracked_entities and len(self._tracked_entities) > 1:
 
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, self._tracked_entities, sensor_state_listener
-            )
-        )
+            @callback
+            def sensor_state_listener(event):  # noqa: ARG001
+                """Handle state changes for non-Nord Pool entities."""
+                self.async_schedule_update_ha_state(True)
 
-    def _get_float_state(self, entity_id: str | None, default: float = 0.0) -> float:
-        """Get float value from entity state."""
-        if not entity_id:
-            return default
-
-        state = self.hass.states.get(entity_id)
-        if not state or state.state in ("unknown", "unavailable"):
-            return default
-
-        try:
-            return float(state.state)
-        except (ValueError, TypeError):
-            return default
-
-    def _get_switch_state(self, switch_type: str) -> bool:
-        """Get switch state."""
-        entity_id = f"switch.{DOMAIN}_{self._entry.entry_id}_{switch_type}"
-        state = self.hass.states.get(entity_id)
-        if not state:
-            return True  # Default to enabled if switch not found
-
-        return state.state == "on"
-
-    def _get_number_entity_value(self, number_type: str, default: float) -> float:
-        """Get value from number entity."""
-        entity_id = f"number.{DOMAIN}_{self._entry.entry_id}_{number_type}"
-        return self._get_float_state(entity_id, default)
+            # Only track entities other than nordpool_entity
+            other_entities = [e for e in self._tracked_entities if e != self._nordpool_entity]
+            if other_entities:
+                self.async_on_remove(
+                    async_track_state_change_event(self.hass, other_entities, sensor_state_listener)
+                )
 
 
 class ForcedDischargeSensor(BatteryTradingBinarySensor):
@@ -161,6 +152,7 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
@@ -175,8 +167,9 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
         if solar_forecast_entity:
             tracked.append(solar_forecast_entity)
 
-        super().__init__(hass, entry, BINARY_SENSOR_FORCED_DISCHARGE, tracked)
-        self._nordpool_entity = nordpool_entity
+        super().__init__(
+            hass, entry, coordinator, BINARY_SENSOR_FORCED_DISCHARGE, nordpool_entity, tracked
+        )
         self._battery_level_entity = battery_level_entity
         self._battery_capacity_entity = battery_capacity_entity
         self._solar_power_entity = solar_power_entity
@@ -194,16 +187,30 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
                 return False
 
             # Get configuration values from number entities
-            min_battery_level = self._get_number_entity_value(NUMBER_MIN_BATTERY_LEVEL, DEFAULT_MIN_BATTERY_LEVEL)
-            min_solar_threshold = self._get_number_entity_value(NUMBER_MIN_SOLAR_THRESHOLD, DEFAULT_MIN_SOLAR_THRESHOLD)
-            min_sell_price = self._get_number_entity_value(NUMBER_MIN_FORCED_SELL_PRICE, DEFAULT_MIN_FORCED_SELL_PRICE)
-            discharge_rate = self._get_number_entity_value(NUMBER_DISCHARGE_RATE_KW, DEFAULT_DISCHARGE_RATE_KW)
-            forced_discharge_hours = self._get_number_entity_value(NUMBER_FORCED_DISCHARGE_HOURS, DEFAULT_FORCED_DISCHARGE_HOURS)
+            min_battery_level = self._get_number_entity_value(
+                NUMBER_MIN_BATTERY_LEVEL, DEFAULT_MIN_BATTERY_LEVEL
+            )
+            min_solar_threshold = self._get_number_entity_value(
+                NUMBER_MIN_SOLAR_THRESHOLD, DEFAULT_MIN_SOLAR_THRESHOLD
+            )
+            min_sell_price = self._get_number_entity_value(
+                NUMBER_MIN_FORCED_SELL_PRICE, DEFAULT_MIN_FORCED_SELL_PRICE
+            )
+            discharge_rate = self._get_number_entity_value(
+                NUMBER_DISCHARGE_RATE_KW, DEFAULT_DISCHARGE_RATE_KW
+            )
+            forced_discharge_hours = self._get_number_entity_value(
+                NUMBER_FORCED_DISCHARGE_HOURS, DEFAULT_FORCED_DISCHARGE_HOURS
+            )
 
             # Get entity states
             battery_capacity = self._get_float_state(self._battery_capacity_entity, 0)
             battery_level = self._get_float_state(self._battery_level_entity, 0)
-            solar_power = self._get_float_state(self._solar_power_entity, 0) if self._solar_power_entity else 0
+            solar_power = (
+                self._get_float_state(self._solar_power_entity, 0)
+                if self._solar_power_entity
+                else 0
+            )
 
             # Check basic conditions
             if battery_capacity <= 0:
@@ -255,13 +262,17 @@ class ForcedDischargeSensor(BatteryTradingBinarySensor):
             _LOGGER.error("Error checking forced discharge state: %s", err, exc_info=True)
             return False
 
+
 class LowPriceSensor(BatteryTradingBinarySensor):
     """Binary sensor for low price detection."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, nordpool_entity: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, coordinator, nordpool_entity: str
+    ) -> None:
         """Initialize the low price sensor."""
-        super().__init__(hass, entry, BINARY_SENSOR_LOW_PRICE, [nordpool_entity])
-        self._nordpool_entity = nordpool_entity
+        super().__init__(
+            hass, entry, coordinator, BINARY_SENSOR_LOW_PRICE, nordpool_entity, [nordpool_entity]
+        )
         self._attr_name = "Low Price Mode"
         self._attr_icon = "mdi:currency-eur-off"
 
@@ -282,10 +293,18 @@ class LowPriceSensor(BatteryTradingBinarySensor):
 class ExportProfitableSensor(BatteryTradingBinarySensor):
     """Binary sensor for export profitable detection."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, nordpool_entity: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, coordinator, nordpool_entity: str
+    ) -> None:
         """Initialize the export profitable sensor."""
-        super().__init__(hass, entry, BINARY_SENSOR_EXPORT_PROFITABLE, [nordpool_entity])
-        self._nordpool_entity = nordpool_entity
+        super().__init__(
+            hass,
+            entry,
+            coordinator,
+            BINARY_SENSOR_EXPORT_PROFITABLE,
+            nordpool_entity,
+            [nordpool_entity],
+        )
         self._attr_name = "Export Profitable"
         self._attr_icon = "mdi:transmission-tower-export"
 
@@ -304,12 +323,18 @@ class ExportProfitableSensor(BatteryTradingBinarySensor):
 
 
 class CheapestHoursSensor(BatteryTradingBinarySensor):
-    """Binary sensor for cheapest hours detection."""
+    """Binary sensor for cheapest time slot detection.
+
+    NOTE: Despite 'hours' in the entity ID, this sensor operates on 15-minute
+    time slots. Returns ON when the current 15-minute period is among the cheapest
+    slots selected for grid charging based on Nord Pool pricing.
+    """
 
     def __init__(
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        coordinator,
         nordpool_entity: str,
         battery_level_entity: str,
         battery_capacity_entity: str,
@@ -320,13 +345,14 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
         tracked = [nordpool_entity, battery_level_entity, battery_capacity_entity]
         if solar_forecast_entity:
             tracked.append(solar_forecast_entity)
-        super().__init__(hass, entry, BINARY_SENSOR_CHEAPEST_HOURS, tracked)
-        self._nordpool_entity = nordpool_entity
+        super().__init__(
+            hass, entry, coordinator, BINARY_SENSOR_CHEAPEST_HOURS, nordpool_entity, tracked
+        )
         self._battery_level_entity = battery_level_entity
         self._battery_capacity_entity = battery_capacity_entity
         self._solar_forecast_entity = solar_forecast_entity
         self._optimizer = optimizer
-        self._attr_name = "Cheapest Hours"
+        self._attr_name = "Cheapest Slot Active"  # Clearer: indicates current 15-min slot status
         self._attr_icon = "mdi:clock-check"
 
     @property
@@ -358,8 +384,12 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
         # Get configuration values from number entities
         battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
         battery_level = self._get_float_state(self._battery_level_entity, 0.0)
-        max_charge_price = self._get_number_entity_value(NUMBER_MAX_FORCE_CHARGE_PRICE, DEFAULT_MAX_FORCE_CHARGE_PRICE)
-        target_level = self._get_number_entity_value(NUMBER_FORCE_CHARGE_TARGET, DEFAULT_FORCE_CHARGE_TARGET)
+        max_charge_price = self._get_number_entity_value(
+            NUMBER_MAX_FORCE_CHARGE_PRICE, DEFAULT_MAX_FORCE_CHARGE_PRICE
+        )
+        target_level = self._get_number_entity_value(
+            NUMBER_FORCE_CHARGE_TARGET, DEFAULT_FORCE_CHARGE_TARGET
+        )
         charge_rate = self._get_number_entity_value(NUMBER_CHARGE_RATE_KW, DEFAULT_CHARGE_RATE_KW)
 
         # Get charging slots from optimizer with multi-day support
@@ -382,23 +412,38 @@ class CheapestHoursSensor(BatteryTradingBinarySensor):
 class BatteryLowSensor(BatteryTradingBinarySensor):
     """Binary sensor for low battery detection."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, battery_level_entity: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, coordinator, battery_level_entity: str
+    ) -> None:
         """Initialize the battery low sensor."""
-        super().__init__(hass, entry, BINARY_SENSOR_BATTERY_LOW, [battery_level_entity])
+        # This sensor doesn't need nordpool_entity, but base class requires it
+        # We use battery_level_entity as the "main" entity instead
+        nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
+        super().__init__(
+            hass,
+            entry,
+            coordinator,
+            BINARY_SENSOR_BATTERY_LOW,
+            nordpool_entity,
+            [battery_level_entity],
+        )
         self._battery_level_entity = battery_level_entity
-        self._attr_name = "Battery Below 15%"
+        self._attr_name = "Battery Low"
         self._attr_device_class = "battery"
 
     @property
     def is_on(self) -> bool:
-        """Return true if battery is below 15%."""
+        """Return true if battery is below configured threshold."""
         state = self.hass.states.get(self._battery_level_entity)
         if not state or state.state in ("unknown", "unavailable"):
             return False
 
         try:
             battery_level = float(state.state)
-            return battery_level < 15
+            threshold = self._get_number_entity_value(
+                NUMBER_BATTERY_LOW_THRESHOLD, DEFAULT_BATTERY_LOW_THRESHOLD
+            )
+            return battery_level < threshold
         except (ValueError, TypeError):
             return False
 
@@ -406,9 +451,20 @@ class BatteryLowSensor(BatteryTradingBinarySensor):
 class SolarAvailableSensor(BatteryTradingBinarySensor):
     """Binary sensor for solar power availability."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, solar_power_entity: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, coordinator, solar_power_entity: str
+    ) -> None:
         """Initialize the solar available sensor."""
-        super().__init__(hass, entry, BINARY_SENSOR_SOLAR_AVAILABLE, [solar_power_entity])
+        # This sensor doesn't need nordpool_entity, but base class requires it
+        nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
+        super().__init__(
+            hass,
+            entry,
+            coordinator,
+            BINARY_SENSOR_SOLAR_AVAILABLE,
+            nordpool_entity,
+            [solar_power_entity],
+        )
         self._solar_power_entity = solar_power_entity
         self._attr_name = "Solar Power Available"
         self._attr_icon = "mdi:solar-power"

@@ -28,10 +28,11 @@ class TestSungrowHelper:
 
     def test_detect_sungrow_entities_no_sungrow(self, mock_hass):
         """Test entity detection with no Sungrow integration."""
-        # Mock non-Sungrow entities
+        # Mock non-Sungrow entities with names that don't match Sungrow patterns
         other_entities = [
-            Mock(entity_id="sensor.battery_level"),
-            Mock(entity_id="sensor.solar_production"),
+            Mock(entity_id="sensor.tesla_battery_soc"),  # Tesla battery, not Sungrow
+            Mock(entity_id="sensor.solar_production_total"),  # Generic solar, not Sungrow
+            Mock(entity_id="sensor.home_battery_capacity_kwh"),  # Generic capacity
         ]
         mock_hass.states.async_all = Mock(return_value=other_entities)
 
@@ -130,9 +131,10 @@ class TestSungrowHelper:
 
     def test_is_sungrow_integration_available_false(self, mock_hass):
         """Test Sungrow integration detection when not available."""
+        # Use entity names that don't match Sungrow patterns
         other_entities = [
-            Mock(entity_id="sensor.battery_level"),
-            Mock(entity_id="sensor.solar_power"),
+            Mock(entity_id="sensor.tesla_battery_soc"),
+            Mock(entity_id="sensor.solar_production_total"),
         ]
         mock_hass.states.async_all = Mock(return_value=other_entities)
 

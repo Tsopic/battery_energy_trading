@@ -1,9 +1,11 @@
 """Sungrow integration helper for automatic parameter detection."""
+
 from __future__ import annotations
 
 import logging
 import re
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -147,7 +149,6 @@ class SungrowHelper:
 
         _LOGGER.warning("Unknown Sungrow inverter model: %s", model_name)
         return None
-
 
     def detect_inverter_model_from_entities(self) -> str | None:
         """

@@ -1,7 +1,9 @@
 """Constants for the Battery Energy Trading integration."""
+
 import json
 from pathlib import Path
 from typing import Final
+
 
 DOMAIN: Final = "battery_energy_trading"
 
@@ -30,6 +32,10 @@ DEFAULT_MIN_SOLAR_THRESHOLD: Final = 500
 DEFAULT_DISCHARGE_RATE_KW: Final = 5.0  # kW
 DEFAULT_CHARGE_RATE_KW: Final = 5.0  # kW
 DEFAULT_MIN_ARBITRAGE_PROFIT: Final = 0.50  # EUR
+DEFAULT_BATTERY_EFFICIENCY: Final = (
+    70  # 70% round-trip efficiency (30% loss from charging/discharging/inverter losses)
+)
+DEFAULT_BATTERY_LOW_THRESHOLD: Final = 15  # % - Battery low warning threshold
 
 # Sensor types
 SENSOR_ARBITRAGE_OPPORTUNITIES: Final = "arbitrage_opportunities"
@@ -60,6 +66,9 @@ NUMBER_MIN_BATTERY_LEVEL: Final = "min_battery_level"
 NUMBER_MIN_SOLAR_THRESHOLD: Final = "min_solar_threshold"
 NUMBER_DISCHARGE_RATE_KW: Final = "discharge_rate_kw"
 NUMBER_CHARGE_RATE_KW: Final = "charge_rate_kw"
+NUMBER_MIN_ARBITRAGE_PROFIT: Final = "min_arbitrage_profit"
+NUMBER_BATTERY_EFFICIENCY: Final = "battery_efficiency"
+NUMBER_BATTERY_LOW_THRESHOLD: Final = "battery_low_threshold"
 
 # Switch types
 SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"

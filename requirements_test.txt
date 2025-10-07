@@ -1,5 +1,15 @@
 # Testing requirements for Battery Energy Trading
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
+# Updated: 2025-10-06 - Latest versions for Python 3.13+
+# Requires: Python >=3.13.2
+
+# Core testing framework
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+
+# Home Assistant testing utilities (latest)
 pytest-homeassistant-custom-component>=0.13.0
-homeassistant>=2024.1.0
+
+# Home Assistant (latest - requires Python 3.13.2+)
+homeassistant>=2025.10.0

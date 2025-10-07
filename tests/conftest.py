@@ -1,18 +1,65 @@
 """Pytest configuration and fixtures for Battery Energy Trading tests."""
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
+
+from homeassistant.core import HomeAssistant
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Enable custom integrations for all tests."""
+    return
 
 
 @pytest.fixture
 def mock_hass():
-    """Mock Home Assistant instance."""
-    hass = MagicMock()
+    """Mock Home Assistant instance with proper setup."""
+    hass = MagicMock(spec=HomeAssistant)
+    hass.data = {}  # Use real dict instead of MagicMock
     hass.states = MagicMock()
     hass.states.async_all = Mock(return_value=[])
     hass.states.get = Mock(return_value=None)
     hass.config_entries = MagicMock()
+    hass.services = MagicMock()  # Add services mock
+    hass.services.async_register = Mock()
     return hass
+
+
+@pytest.fixture
+def mock_hass_with_nordpool(mock_hass, mock_nord_pool_state):
+    """Mock Home Assistant instance with Nord Pool integration."""
+    # Make async_all return Nord Pool entity
+    mock_hass.states.async_all = Mock(return_value=[mock_nord_pool_state])
+
+    # Make states.get return Nord Pool entity when queried
+    def get_state(entity_id):
+        if entity_id == mock_nord_pool_state.entity_id:
+            return mock_nord_pool_state
+        return None
+
+    mock_hass.states.get = Mock(side_effect=get_state)
+    return mock_hass
+
+
+@pytest.fixture
+def mock_hass_with_nordpool_and_sungrow(mock_hass, mock_nord_pool_state, mock_sungrow_entities):
+    """Mock Home Assistant instance with both Nord Pool and Sungrow integrations."""
+    # Combine Nord Pool and Sungrow entities
+    all_entities = [mock_nord_pool_state] + mock_sungrow_entities
+    mock_hass.states.async_all = Mock(return_value=all_entities)
+
+    # Make states.get return correct entity when queried
+    def get_state(entity_id):
+        if entity_id == mock_nord_pool_state.entity_id:
+            return mock_nord_pool_state
+        for entity in mock_sungrow_entities:
+            if entity.entity_id == entity_id:
+                return entity
+        return None
+
+    mock_hass.states.get = Mock(side_effect=get_state)
+    return mock_hass
 
 
 @pytest.fixture
@@ -107,3 +154,97 @@ def mock_sungrow_entities():
     device_type.attributes = {}
 
     return [battery_level, battery_capacity, solar_power, device_type]
+
+
+@pytest.fixture
+def mock_nord_pool_state():
+    """Mock Nord Pool sensor state with realistic price data."""
+    state = MagicMock()
+    state.state = "0.15"
+    state.entity_id = "sensor.nordpool_kwh_ee_eur_3_10_022"
+
+    # Create realistic raw_today data
+    base_time = datetime(2025, 10, 2, 0, 0, 0)
+    raw_today = []
+    for hour in range(24):
+        for quarter in range(4):
+            start = base_time + timedelta(hours=hour, minutes=quarter * 15)
+            end = start + timedelta(minutes=15)
+
+            # Realistic Estonian pricing pattern
+            if 8 <= hour < 10:  # Morning peak
+                price = 0.35 + (quarter * 0.02)
+            elif 17 <= hour < 20:  # Evening peak
+                price = 0.40 + (quarter * 0.03)
+            elif 2 <= hour < 5:  # Night cheap
+                price = 0.02 + (quarter * 0.01)
+            else:  # Normal hours
+                price = 0.12 + (quarter * 0.01)
+
+            raw_today.append({
+                "start": start,
+                "end": end,
+                "value": price,
+            })
+
+    state.attributes = {
+        "raw_today": raw_today,
+        "raw_tomorrow": [],  # Populated after 13:00 CET
+        "unit": "EUR/kWh",
+        "currency": "EUR",
+    }
+
+    return state
+
+
+@pytest.fixture
+def mock_coordinator():
+    """Mock DataUpdateCoordinator."""
+    coordinator = MagicMock()
+    coordinator.data = {
+        "raw_today": [],
+        "raw_tomorrow": None,
+        "current_price": 0.15,
+    }
+    coordinator.async_add_listener = Mock()
+    coordinator.async_remove_listener = Mock()
+    return coordinator
+
+
+@pytest.fixture
+def mock_battery_states(mock_hass):
+    """Mock battery-related sensor states."""
+    # Battery level sensor
+    battery_level = MagicMock()
+    battery_level.state = "75"
+    battery_level.entity_id = "sensor.battery_level"
+    battery_level.attributes = {"unit_of_measurement": "%"}
+
+    # Battery capacity sensor
+    battery_capacity = MagicMock()
+    battery_capacity.state = "12.8"
+    battery_capacity.entity_id = "sensor.battery_capacity"
+    battery_capacity.attributes = {"unit_of_measurement": "kWh"}
+
+    # Solar power sensor
+    solar_power = MagicMock()
+    solar_power.state = "2500"
+    solar_power.entity_id = "sensor.solar_power"
+    solar_power.attributes = {"unit_of_measurement": "W"}
+
+    # Configure mock_hass states
+    def get_state(entity_id):
+        states_map = {
+            "sensor.battery_level": battery_level,
+            "sensor.battery_capacity": battery_capacity,
+            "sensor.solar_power": solar_power,
+        }
+        return states_map.get(entity_id)
+
+    mock_hass.states.get = Mock(side_effect=get_state)
+
+    return {
+        "battery_level": battery_level,
+        "battery_capacity": battery_capacity,
+        "solar_power": solar_power,
+    }

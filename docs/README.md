@@ -1,85 +1,123 @@
 # Battery Energy Trading Documentation
 
-Welcome to the Battery Energy Trading documentation!
+Complete documentation index for the Battery Energy Trading Home Assistant integration.
 
-## 📚 Documentation Index
+## Quick Start
 
-### User Guide
+- **[Installation Guide](../INSTALLATION.md)** - Install via HACS, pip, or manually
+- **[Main README](../README.md)** - Project overview, features, and quick start
+- **[Changelog](../CHANGELOG.md)** - Version history and release notes
 
-- **[Installation Guide](../README.md#-installation)** - How to install via HACS or manually
-- **[Configuration Guide](../README.md#️-configuration)** - Setting up the integration
-- **[Dashboard Setup](../dashboards/README.md)** - Pre-built dashboard and customization
-- **[Sungrow Integration](integrations/sungrow.md)** - Automatic Sungrow inverter setup and automations
+## Documentation Sections
 
-### Integrations
+### 📖 User Guide
 
-- **[Sungrow Inverters](integrations/sungrow.md)** - Complete guide for Sungrow SHx inverters
-  - Auto-detection and configuration
-  - Pre-built automations
-  - Supported models and specifications
+End-user documentation for installation, configuration, and usage.
 
-### Development
+**[User Guide Index](user-guide/README.md)**
 
-- **[Features Overview](development/features.md)** - Detailed feature documentation
-- **[Testing Guide](development/testing.md)** - How to run and write tests
-- **[Test Results](development/test-results.md)** - Latest test coverage and results
-- **[Release Process](development/release-process.md)** - How to create releases
-- **[Contributing Guide](../CLAUDE.md)** - Development guidelines and architecture
+- [Installation Guide](../INSTALLATION.md) - HACS, pip, and manual installation
+- [Dashboard Setup](user-guide/dashboard-setup.md) - Dashboard installation and configuration
+- [Dashboard Entity Reference](user-guide/dashboard-entity-reference.md) - Entity list and descriptions
+- [Terminology Guide](TERMINOLOGY.md) - Understanding slots, hours, and key concepts
 
-### Reference
+### 🔌 Integration Guides
 
-- **[Changelog](../CHANGELOG.md)** - Version history and changes
-- **[License](../LICENSE)** - MIT License
+Documentation for third-party integrations and inverter systems.
 
-## 🎯 Quick Links
+**[Integrations Index](integrations/README.md)**
 
-### Getting Started
-1. [Prerequisites](../README.md#-prerequisites) - Required integrations (Nord Pool)
-2. [Installation](../README.md#-installation) - HACS or manual installation
-3. [Configuration](../README.md#️-configuration) - Initial setup
-4. [Dashboard](../dashboards/README.md) - Add the pre-built dashboard
+- [Sungrow Integration](integrations/sungrow.md) - Sungrow inverter integration guide
+- [Sungrow Entity Reference](integrations/sungrow-reference.md) - Complete Sungrow entity documentation
 
-### Common Tasks
-- [Set up Sungrow automations](integrations/sungrow.md#automation-examples)
-- [Configure discharge hours](../README.md#configuration-parameters)
-- [Customize the dashboard](../dashboards/README.md#customization)
-- [Run tests](development/testing.md)
+### 🛠️ Development
 
-### Advanced Topics
-- [Energy optimization logic](../CLAUDE.md#energy-optimization-logic-energy_optimizerpy)
-- [Discharge slot selection](../CLAUDE.md#how-it-works-now)
-- [Nord Pool integration](../CLAUDE.md#price-data-format)
-- [Architecture overview](../CLAUDE.md#architecture)
+Documentation for developers and contributors.
 
-## 📖 Documentation Structure
+**[Development Index](development/README.md)**
+
+- [Testing Guide](development/testing.md) - Running tests, coverage, CI/CD
+- [Manual Testing Checklist](development/manual-testing-checklist.md) - Manual test scenarios
+- [Features Documentation](development/features.md) - Feature details and implementation
+- [Release Process](development/release-process.md) - Version management and releases
+- [Development History](development/history/README.md) - Historical implementation logs
+
+### 🔧 API Reference
+
+Technical API documentation (in development).
+
+**[API Documentation Index](api/README.md)**
+
+- Energy Optimizer - Core optimization algorithms (coming soon)
+- Sungrow Helper - Auto-detection utilities (coming soon)
+- Configuration Flow - Setup wizard (coming soon)
+- Entity Platforms - Sensors, binary sensors, numbers, switches (coming soon)
+
+## Additional Resources
+
+### Project Files
+- **[CLAUDE.md](../CLAUDE.md)** - AI assistant guidelines and architecture documentation
+- **[Documentation Guidelines](DOCUMENTATION_GUIDELINES.md)** - Documentation standards and workflow
+- **[LICENSE](../LICENSE)** - MIT License
+- **[Contributing](development/README.md#contributing)** - Contribution guidelines
+
+### External Links
+- **[GitHub Repository](https://github.com/Tsopic/battery_energy_trading)** - Source code and issues
+- **[HACS](https://hacs.xyz/)** - Home Assistant Community Store
+- **[Nord Pool Integration](https://github.com/custom-components/nordpool)** - Required dependency
+- **[Sungrow Integration](https://github.com/mkaiser/Sungrow-SHx-Inverter-Modbus-Home-Assistant/)** - Optional for auto-detection
+
+## Documentation Organization
+
+### Directory Structure
 
 ```
 docs/
-├── README.md                    # This file - documentation index
-├── user-guide/                  # End-user documentation
-├── integrations/                # Integration-specific guides
-│   └── sungrow.md              # Sungrow inverter integration
-└── development/                 # Developer documentation
-    ├── features.md             # Feature details and specifications
-    ├── testing.md              # Testing guide
-    ├── test-results.md         # Test coverage and results
-    └── release-process.md      # Release workflow
+├── README.md                          # This file - main documentation index
+├── TERMINOLOGY.md                     # Key concepts and terminology
+│
+├── user-guide/                        # End-user documentation
+│   ├── README.md                      # User guide index
+│   ├── dashboard-setup.md             # Dashboard setup guide
+│   └── dashboard-entity-reference.md  # Dashboard entity list
+│
+├── integrations/                      # Third-party integration guides
+│   ├── README.md                      # Integrations index
+│   ├── sungrow.md                     # Sungrow integration guide
+│   └── sungrow-reference.md           # Sungrow entity reference
+│
+├── development/                       # Developer documentation
+│   ├── README.md                      # Development index
+│   ├── testing.md                     # Testing guide
+│   ├── manual-testing-checklist.md    # Manual test scenarios
+│   ├── features.md                    # Feature documentation
+│   ├── release-process.md             # Release workflow
+│   │
+│   └── history/                       # Historical documentation
+│       ├── README.md                  # History index
+│       └── *.md                       # Implementation logs (2025-10)
+│
+└── api/                               # API documentation (in development)
+    └── README.md                      # API index
 ```
 
-## 🤝 Contributing
+### Navigation Tips
 
-We welcome contributions! See the [Contributing Guide](../CLAUDE.md) for:
-- Architecture overview
-- Development setup
-- Code standards
-- Common commands
+1. **Start with the User Guide** if you're installing and using the integration
+2. **Check Integrations** for Sungrow or other inverter-specific documentation
+3. **Visit Development** if you're contributing code or running tests
+4. **Browse History** to understand past architectural decisions
 
-## 💬 Support
+## Getting Help
 
 - **Issues**: [GitHub Issues](https://github.com/Tsopic/battery_energy_trading/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Tsopic/battery_energy_trading/discussions)
-- **Home Assistant Community**: [Community Forum](https://community.home-assistant.io/)
+- **Documentation Bugs**: Report via GitHub Issues with `documentation` label
 
-## 📝 License
+## Documentation Guidelines
 
-This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
+See [Development Guide](development/README.md#contributing) for:
+- File naming conventions
+- When to archive vs keep in main docs
+- Cross-reference standards
+- Index file requirements

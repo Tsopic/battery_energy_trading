@@ -1,11 +1,13 @@
 """Energy optimization logic for Battery Energy Trading."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Any
-import logging
 import hashlib
 import json
+import logging
+from datetime import datetime, timedelta
+from typing import Any
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ class EnergyOptimizer:
         cache_data = {
             "method": method_name,
             "args": str(args),
-            "kwargs": {k: v for k, v in kwargs.items() if not isinstance(v, (datetime, list))},
+            "kwargs": {k: v for k, v in kwargs.items() if not isinstance(v, datetime | list)},
         }
         cache_str = json.dumps(cache_data, sort_keys=True)
         return hashlib.md5(cache_str.encode()).hexdigest()
@@ -34,14 +36,19 @@ class EnergyOptimizer:
         """Remove expired entries from cache to prevent memory leak."""
         now = datetime.now()
         expired_keys = [
-            key for key, (cached_time, _) in self._cache.items()
+            key
+            for key, (cached_time, _) in self._cache.items()
             if now - cached_time >= self._cache_ttl
         ]
         for key in expired_keys:
             del self._cache[key]
 
         if expired_keys:
-            _LOGGER.debug("Cleaned %d expired cache entries (cache size: %d)", len(expired_keys), len(self._cache))
+            _LOGGER.debug(
+                "Cleaned %d expired cache entries (cache size: %d)",
+                len(expired_keys),
+                len(self._cache),
+            )
 
     def _get_cached(self, cache_key: str) -> Any | None:
         """Get cached result if still valid."""
@@ -53,9 +60,8 @@ class EnergyOptimizer:
             if datetime.now() - cached_time < self._cache_ttl:
                 _LOGGER.debug("Cache hit for key %s", cache_key[:8])
                 return cached_result
-            else:
-                _LOGGER.debug("Cache expired for key %s", cache_key[:8])
-                del self._cache[cache_key]
+            _LOGGER.debug("Cache expired for key %s", cache_key[:8])
+            del self._cache[cache_key]
         return None
 
     def _set_cached(self, cache_key: str, result: Any) -> None:
@@ -86,8 +92,7 @@ class EnergyOptimizer:
 
     @staticmethod
     def _merge_price_data(
-        raw_today: list[dict[str, Any]],
-        raw_tomorrow: list[dict[str, Any]] | None = None
+        raw_today: list[dict[str, Any]], raw_tomorrow: list[dict[str, Any]] | None = None
     ) -> list[dict[str, Any]]:
         """Merge today and tomorrow price data.
 
@@ -104,10 +109,7 @@ class EnergyOptimizer:
         # Filter out any overlapping slots (tomorrow's data might include end of today)
         if raw_today:
             last_today_time = raw_today[-1]["end"]
-            raw_tomorrow = [
-                slot for slot in raw_tomorrow
-                if slot["start"] >= last_today_time
-            ]
+            raw_tomorrow = [slot for slot in raw_tomorrow if slot["start"] >= last_today_time]
 
         return raw_today + raw_tomorrow
 
@@ -140,7 +142,9 @@ class EnergyOptimizer:
             try:
                 # Try parsing as ISO format datetime string
                 if isinstance(key, str):
-                    dt = datetime.fromisoformat(key.replace('+00:00', '').replace('+01:00', '').replace('+02:00', ''))
+                    dt = datetime.fromisoformat(
+                        key.replace("+00:00", "").replace("+01:00", "").replace("+02:00", "")
+                    )
                     normalized_key = EnergyOptimizer._normalize_datetime_key(dt)
                     normalized[normalized_key] = float(value)
                 elif isinstance(key, datetime):
@@ -161,9 +165,7 @@ class EnergyOptimizer:
             Slot duration in hours (0.25 for 15-min, 1.0 for hourly)
         """
         if len(raw_prices) > 1:
-            return (
-                raw_prices[1]["start"] - raw_prices[0]["start"]
-            ).total_seconds() / 3600.0
+            return (raw_prices[1]["start"] - raw_prices[0]["start"]).total_seconds() / 3600.0
         return 0.25  # Default to 15 minutes
 
     @staticmethod
@@ -225,9 +227,13 @@ class EnergyOptimizer:
                 battery_levels[slot_start] = current_level
 
             if estimates_count > 0:
-                _LOGGER.debug("Applied solar estimates for %d/%d slots", estimates_count, len(price_slots))
+                _LOGGER.debug(
+                    "Applied solar estimates for %d/%d slots", estimates_count, len(price_slots)
+                )
             else:
-                _LOGGER.warning("No matching solar forecast entries found - check datetime format compatibility")
+                _LOGGER.warning(
+                    "No matching solar forecast entries found - check datetime format compatibility"
+                )
 
         except Exception as err:
             _LOGGER.error("Error estimating solar impact: %s", err, exc_info=True)
@@ -251,12 +257,12 @@ class EnergyOptimizer:
         Returns:
             Solar energy in kWh generated between slot1.end and slot2.start
         """
-        if not solar_forecast_data or 'wh_hours' not in solar_forecast_data:
+        if not solar_forecast_data or "wh_hours" not in solar_forecast_data:
             return 0.0
 
-        wh_hours = solar_forecast_data['wh_hours']
-        start_time = slot1['end']
-        end_time = slot2['start']
+        wh_hours = solar_forecast_data["wh_hours"]
+        start_time = slot1["end"]
+        end_time = slot2["start"]
 
         # Pre-normalize solar forecast keys for fast lookups
         normalized_wh = EnergyOptimizer._create_normalized_solar_dict(wh_hours)
@@ -298,25 +304,22 @@ class EnergyOptimizer:
         feasible_slots = []
 
         # Sort slots by time (earliest first) for sequential projection
-        time_sorted = sorted(slots, key=lambda x: x['start'])
+        time_sorted = sorted(slots, key=lambda x: x["start"])
 
         for i, slot in enumerate(time_sorted):
             # Calculate solar generation between previous slot and this slot
             if i > 0 and solar_forecast_data:
                 solar_kwh = self._calculate_solar_between_slots(
-                    time_sorted[i-1], slot, solar_forecast_data
+                    time_sorted[i - 1], slot, solar_forecast_data
                 )
                 if solar_kwh > 0:
-                    current_battery = min(
-                        current_battery + solar_kwh,
-                        battery_capacity_kwh
-                    )
+                    current_battery = min(current_battery + solar_kwh, battery_capacity_kwh)
                     _LOGGER.debug(
                         "Solar recharge +%.2f kWh between %s and %s (battery: %.2f kWh)",
                         solar_kwh,
-                        time_sorted[i-1]['end'].strftime('%H:%M'),
-                        slot['start'].strftime('%H:%M'),
-                        current_battery
+                        time_sorted[i - 1]["end"].strftime("%H:%M"),
+                        slot["start"].strftime("%H:%M"),
+                        current_battery,
                     )
 
             # Calculate energy needed for this slot
@@ -325,28 +328,28 @@ class EnergyOptimizer:
             # Check if we have enough battery for this slot
             if current_battery >= energy_needed:
                 slot_copy = slot.copy()
-                slot_copy['battery_before'] = current_battery
+                slot_copy["battery_before"] = current_battery
                 current_battery -= energy_needed
-                slot_copy['battery_after'] = current_battery
-                slot_copy['feasible'] = True
-                slot_copy['energy_kwh'] = energy_needed
+                slot_copy["battery_after"] = current_battery
+                slot_copy["feasible"] = True
+                slot_copy["energy_kwh"] = energy_needed
                 # Ensure 'price' key exists (use 'value' if that's what's in the slot)
-                if 'price' not in slot_copy and 'value' in slot_copy:
-                    slot_copy['price'] = slot_copy['value']
+                if "price" not in slot_copy and "value" in slot_copy:
+                    slot_copy["price"] = slot_copy["value"]
                 feasible_slots.append(slot_copy)
                 _LOGGER.debug(
                     "Slot %s feasible: %.2f kWh -> %.2f kWh (discharge %.2f kWh)",
-                    slot['start'].strftime('%H:%M'),
-                    slot_copy['battery_before'],
-                    slot_copy['battery_after'],
-                    energy_needed
+                    slot["start"].strftime("%H:%M"),
+                    slot_copy["battery_before"],
+                    slot_copy["battery_after"],
+                    energy_needed,
                 )
             else:
                 _LOGGER.debug(
                     "Slot %s NOT feasible: insufficient battery (%.2f kWh < %.2f kWh needed)",
-                    slot['start'].strftime('%H:%M'),
+                    slot["start"].strftime("%H:%M"),
                     current_battery,
-                    energy_needed
+                    energy_needed,
                 )
 
         return feasible_slots
@@ -362,6 +365,7 @@ class EnergyOptimizer:
         raw_tomorrow: list[dict[str, Any]] | None = None,
         solar_forecast_data: dict[str, Any] | None = None,
         multiday_enabled: bool = False,
+        min_battery_reserve_percent: float = 25.0,
     ) -> list[dict[str, Any]]:
         """
         Intelligently select discharge time slots based on price and battery capacity.
@@ -376,9 +380,12 @@ class EnergyOptimizer:
             raw_tomorrow: Tomorrow's price data (optional, for multi-day optimization)
             solar_forecast_data: Solar forecast data (optional, for battery level estimation)
             multiday_enabled: Enable multi-day optimization across today + tomorrow
+            min_battery_reserve_percent: Minimum battery reserve to maintain (default 25%)
 
         Returns:
-            List of selected discharge slots with calculated energy amounts
+            List of selected discharge slots with calculated energy amounts, combined
+            into consecutive periods. Partial discharge is applied automatically if
+            needed to respect the minimum battery reserve.
         """
         # Validate inputs
         battery_capacity, battery_level, discharge_rate = self._validate_inputs(
@@ -387,13 +394,22 @@ class EnergyOptimizer:
 
         _LOGGER.debug(
             "Selecting discharge slots: min_price=%.3f EUR/kWh, capacity=%.1f kWh, level=%.1f%%, rate=%.1f kW, max_hours=%s",
-            min_sell_price, battery_capacity, battery_level, discharge_rate, max_hours
+            min_sell_price,
+            battery_capacity,
+            battery_level,
+            discharge_rate,
+            max_hours,
         )
 
         # Check cache
         cache_key = self._get_cache_key(
             "select_discharge_slots",
-            len(raw_prices), min_sell_price, battery_capacity, battery_level, discharge_rate, max_hours
+            len(raw_prices),
+            min_sell_price,
+            battery_capacity,
+            battery_level,
+            discharge_rate,
+            max_hours,
         )
         cached_result = self._get_cached(cache_key)
         if cached_result is not None:
@@ -408,7 +424,9 @@ class EnergyOptimizer:
             all_prices = self._merge_price_data(raw_prices, raw_tomorrow)
             _LOGGER.debug(
                 "Multi-day optimization enabled: %d today slots + %d tomorrow slots = %d total",
-                len(raw_prices), len(raw_tomorrow), len(all_prices)
+                len(raw_prices),
+                len(raw_tomorrow),
+                len(all_prices),
             )
         else:
             all_prices = raw_prices
@@ -420,7 +438,10 @@ class EnergyOptimizer:
                 all_prices, solar_forecast_data, battery_capacity, battery_level
             )
             if solar_battery_estimates:
-                _LOGGER.debug("Solar forecast impact: battery levels estimated for %d slots", len(solar_battery_estimates))
+                _LOGGER.debug(
+                    "Solar forecast impact: battery levels estimated for %d slots",
+                    len(solar_battery_estimates),
+                )
 
         # Calculate available energy in battery
         available_energy = (battery_capacity * battery_level) / 100.0  # kWh
@@ -437,7 +458,10 @@ class EnergyOptimizer:
 
         # Prevent division by zero if discharge rate is 0
         if energy_per_slot <= 0:
-            _LOGGER.warning("Invalid discharge rate or slot duration (energy per slot: %.2f kWh)", energy_per_slot)
+            _LOGGER.warning(
+                "Invalid discharge rate or slot duration (energy per slot: %.2f kWh)",
+                energy_per_slot,
+            )
             return []
 
         # Calculate how many slots we can discharge (accounting for solar recharge)
@@ -453,9 +477,7 @@ class EnergyOptimizer:
             return []
 
         # Filter slots above minimum price
-        profitable_slots = [
-            slot for slot in all_prices if slot["value"] >= min_sell_price
-        ]
+        profitable_slots = [slot for slot in all_prices if slot["value"] >= min_sell_price]
 
         if not profitable_slots:
             _LOGGER.info(
@@ -466,7 +488,9 @@ class EnergyOptimizer:
 
         # Use battery state projection for intelligent multi-peak selection
         if solar_forecast_data:
-            _LOGGER.debug("Using battery state projection with solar forecast for feasibility analysis")
+            _LOGGER.debug(
+                "Using battery state projection with solar forecast for feasibility analysis"
+            )
 
             # Project battery state through all profitable slots (sorted by time)
             feasible_slots = self._project_battery_state(
@@ -493,16 +517,18 @@ class EnergyOptimizer:
 
                 for slot in price_sorted:
                     if total_hours + slot_duration_hours <= max_hours:
-                        selected_slots.append({
-                            "start": slot["start"],
-                            "end": slot["end"],
-                            "price": slot["price"],
-                            "energy_kwh": slot["energy_kwh"],
-                            "revenue": slot["energy_kwh"] * slot["price"],
-                            "duration_hours": slot_duration_hours,
-                            "battery_before": slot["battery_before"],
-                            "battery_after": slot["battery_after"],
-                        })
+                        selected_slots.append(
+                            {
+                                "start": slot["start"],
+                                "end": slot["end"],
+                                "price": slot["price"],
+                                "energy_kwh": slot["energy_kwh"],
+                                "revenue": slot["energy_kwh"] * slot["price"],
+                                "duration_hours": slot_duration_hours,
+                                "battery_before": slot["battery_before"],
+                                "battery_after": slot["battery_after"],
+                            }
+                        )
                         total_hours += slot_duration_hours
             else:
                 # No hour limit - return all feasible slots
@@ -572,10 +598,18 @@ class EnergyOptimizer:
             " (with battery state projection)" if solar_forecast_data else "",
         )
 
-        # Cache the result
-        self._set_cached(cache_key, selected_slots)
+        # Combine consecutive slots into longer discharge periods
+        # Respects user-configured minimum battery reserve
+        combined_slots = self._combine_consecutive_slots(
+            selected_slots,
+            min_battery_reserve_percent=min_battery_reserve_percent,
+            battery_capacity_kwh=battery_capacity,
+        )
 
-        return selected_slots
+        # Cache the result
+        self._set_cached(cache_key, combined_slots)
+
+        return combined_slots
 
     def select_charging_slots(
         self,
@@ -619,7 +653,13 @@ class EnergyOptimizer:
         # Check cache
         cache_key = self._get_cache_key(
             "select_charging_slots",
-            len(raw_prices), max_charge_price, battery_capacity, battery_level, target_level, charge_rate, max_slots
+            len(raw_prices),
+            max_charge_price,
+            battery_capacity,
+            battery_level,
+            target_level,
+            charge_rate,
+            max_slots,
         )
         cached_result = self._get_cached(cache_key)
         if cached_result is not None:
@@ -634,7 +674,9 @@ class EnergyOptimizer:
             all_prices = self._merge_price_data(raw_prices, raw_tomorrow)
             _LOGGER.debug(
                 "Multi-day charging optimization: %d today slots + %d tomorrow slots = %d total",
-                len(raw_prices), len(raw_tomorrow), len(all_prices)
+                len(raw_prices),
+                len(raw_tomorrow),
+                len(all_prices),
             )
         else:
             all_prices = raw_prices
@@ -646,7 +688,10 @@ class EnergyOptimizer:
                 all_prices, solar_forecast_data, battery_capacity, battery_level
             )
             if solar_battery_estimates:
-                _LOGGER.debug("Solar forecast reduces charging need - battery levels estimated for %d slots", len(solar_battery_estimates))
+                _LOGGER.debug(
+                    "Solar forecast reduces charging need - battery levels estimated for %d slots",
+                    len(solar_battery_estimates),
+                )
 
         # Calculate needed energy (accounting for solar if forecast available)
         current_energy = (battery_capacity * battery_level) / 100.0
@@ -658,12 +703,22 @@ class EnergyOptimizer:
             # Find the maximum estimated battery level from solar alone
             max_solar_level = max(solar_battery_estimates.values(), default=battery_level)
             if max_solar_level >= target_level:
-                _LOGGER.info("Solar forecast shows battery will reach target (%.1f%%) without grid charging", max_solar_level)
+                _LOGGER.info(
+                    "Solar forecast shows battery will reach target (%.1f%%) without grid charging",
+                    max_solar_level,
+                )
                 return []
             # Reduce needed energy by expected solar contribution
-            solar_energy_contribution = (battery_capacity * (max_solar_level - battery_level)) / 100.0
+            solar_energy_contribution = (
+                battery_capacity * (max_solar_level - battery_level)
+            ) / 100.0
             needed_energy = max(0, needed_energy - solar_energy_contribution)
-            _LOGGER.debug("Solar forecast reduces charging need by %.2f kWh (%.1f%% -> %.1f%%)", solar_energy_contribution, battery_level, max_solar_level)
+            _LOGGER.debug(
+                "Solar forecast reduces charging need by %.2f kWh (%.1f%% -> %.1f%%)",
+                solar_energy_contribution,
+                battery_level,
+                max_solar_level,
+            )
 
         if needed_energy <= 0:
             _LOGGER.info("Battery already at or above target level")
@@ -677,16 +732,16 @@ class EnergyOptimizer:
 
         # Prevent division by zero if charge rate is 0
         if energy_per_slot <= 0:
-            _LOGGER.warning("Invalid charge rate or slot duration (energy per slot: %.2f kWh)", energy_per_slot)
+            _LOGGER.warning(
+                "Invalid charge rate or slot duration (energy per slot: %.2f kWh)", energy_per_slot
+            )
             return []
 
         # Calculate slots needed
         slots_needed = int((needed_energy + energy_per_slot - 0.001) / energy_per_slot)
 
         # Filter slots below max price
-        economical_slots = [
-            slot for slot in all_prices if slot["value"] <= max_charge_price
-        ]
+        economical_slots = [slot for slot in all_prices if slot["value"] <= max_charge_price]
 
         if not economical_slots:
             _LOGGER.info(
@@ -731,10 +786,18 @@ class EnergyOptimizer:
             " (multi-day with solar forecast)" if solar_battery_estimates else "",
         )
 
-        # Cache the result
-        self._set_cached(cache_key, selected_slots)
+        # Combine consecutive slots into longer charging periods
+        # Note: Reserve doesn't apply to charging, but kept for consistency
+        combined_slots = self._combine_consecutive_slots(
+            selected_slots,
+            min_battery_reserve_percent=0.0,  # No reserve limit for charging
+            battery_capacity_kwh=battery_capacity,
+        )
 
-        return selected_slots
+        # Cache the result
+        self._set_cached(cache_key, combined_slots)
+
+        return combined_slots
 
     def calculate_arbitrage_opportunities(
         self,
@@ -742,22 +805,29 @@ class EnergyOptimizer:
         battery_capacity: float,
         charge_rate: float = 5.0,
         discharge_rate: float = 5.0,
-        efficiency: float = 0.9,
+        efficiency: float = 0.7,
         min_profit_threshold: float = 0.05,
     ) -> list[dict[str, Any]]:
         """
-        Find arbitrage opportunities considering battery capacity and efficiency.
+        Find arbitrage opportunities considering battery capacity and efficiency losses.
+
+        Accounts for realistic round-trip efficiency of 70% (30% total energy loss):
+        - Charging losses: ~10% (AC to DC conversion, heat)
+        - Discharging losses: ~10% (DC to AC conversion, heat)
+        - Inverter losses: ~5-10% (switching, transformation)
+        - Total combined loss: ~30%
 
         Args:
             raw_prices: List of price data
             battery_capacity: Battery capacity in kWh
             charge_rate: Charging rate in kW
             discharge_rate: Discharging rate in kW
-            efficiency: Round-trip efficiency (0-1)
+            efficiency: Round-trip efficiency (0-1), default 0.7 = 30% loss
             min_profit_threshold: Minimum profit threshold in EUR
 
         Returns:
-            List of arbitrage opportunities with charge/discharge windows
+            List of arbitrage opportunities with charge/discharge windows,
+            accounting for energy losses during charge/discharge cycles
         """
         if not raw_prices or len(raw_prices) < 3:
             return []
@@ -769,30 +839,24 @@ class EnergyOptimizer:
 
         # Energy per slot
         charge_energy_per_slot = charge_rate * slot_duration_hours
-        discharge_energy_per_slot = discharge_rate * slot_duration_hours
+        discharge_energy_per_slot = discharge_rate * slot_duration_hours  # noqa: F841
 
         # Find charging windows and matching discharge windows
         for charge_start_idx in range(len(raw_prices) - 2):
             # Calculate charge window (could be multiple consecutive slots)
-            charge_slots_needed = max(
-                1, int(battery_capacity / charge_energy_per_slot)
-            )
+            charge_slots_needed = max(1, int(battery_capacity / charge_energy_per_slot))
             charge_end_idx = min(charge_start_idx + charge_slots_needed, len(raw_prices))
 
             # Calculate average charge price
             charge_window = raw_prices[charge_start_idx:charge_end_idx]
-            avg_charge_price = sum(s["value"] for s in charge_window) / len(
-                charge_window
-            )
+            avg_charge_price = sum(s["value"] for s in charge_window) / len(charge_window)
 
             # Look for discharge opportunities after charging window
             for discharge_idx in range(charge_end_idx + 1, len(raw_prices)):
                 discharge_price = raw_prices[discharge_idx]["value"]
 
                 # Calculate profit considering efficiency
-                energy_charged = min(
-                    battery_capacity, charge_energy_per_slot * len(charge_window)
-                )
+                energy_charged = min(battery_capacity, charge_energy_per_slot * len(charge_window))
                 energy_discharged = energy_charged * efficiency
 
                 charge_cost = energy_charged * avg_charge_price
@@ -852,3 +916,178 @@ class EnergyOptimizer:
                 return True
 
         return False
+
+    @staticmethod
+    def _combine_consecutive_slots(
+        slots: list[dict[str, Any]],
+        min_battery_reserve_percent: float = 10.0,
+        battery_capacity_kwh: float | None = None,
+    ) -> list[dict[str, Any]]:
+        """Combine consecutive profitable slots into longer discharge periods.
+
+        This creates longer discharge windows when multiple consecutive slots are
+        profitable, respecting battery capacity and reserve constraints. When battery
+        runs low during a period, the last slot is automatically reduced to partial
+        discharge to avoid violating the minimum reserve.
+
+        Args:
+            slots: List of individual slots sorted by start time
+            min_battery_reserve_percent: Minimum battery level to maintain (user configurable)
+            battery_capacity_kwh: Battery capacity for reserve calculation (optional)
+
+        Returns:
+            List of combined slots with merged consecutive periods, with partial
+            discharge applied to final slot if needed to respect battery reserve
+        """
+        if not slots:
+            return []
+
+        # Sort by start time to ensure consecutive detection works
+        sorted_slots = sorted(slots, key=lambda x: x["start"])
+
+        combined = []
+        current_group = [sorted_slots[0]]
+
+        for slot in sorted_slots[1:]:
+            # Check if this slot is consecutive with the previous one
+            last_slot = current_group[-1]
+
+            # Slots are consecutive if the end time of the last slot equals the start time of this slot
+            if last_slot["end"] == slot["start"]:
+                current_group.append(slot)
+            else:
+                # Not consecutive - finalize the current group and start a new one
+                combined.append(
+                    _merge_slot_group(
+                        current_group, min_battery_reserve_percent, battery_capacity_kwh
+                    )
+                )
+                current_group = [slot]
+
+        # Don't forget the last group
+        if current_group:
+            combined.append(
+                _merge_slot_group(current_group, min_battery_reserve_percent, battery_capacity_kwh)
+            )
+
+        _LOGGER.info(
+            "Combined %d individual slots into %d consecutive discharge periods (min reserve: %.0f%%)",
+            len(slots),
+            len(combined),
+            min_battery_reserve_percent,
+        )
+
+        return combined
+
+
+def _merge_slot_group(
+    group: list[dict[str, Any]],
+    min_battery_reserve_percent: float = 10.0,
+    battery_capacity_kwh: float | None = None,
+) -> dict[str, Any]:
+    """Merge a group of consecutive slots into a single combined slot.
+
+    Implements partial slot discharge: if the combined discharge would violate
+    the minimum battery reserve, the last slot is automatically reduced to stop
+    at the reserve threshold.
+
+    Args:
+        group: List of consecutive slots to merge
+        min_battery_reserve_percent: Minimum battery level to maintain
+        battery_capacity_kwh: Battery capacity for reserve calculation
+
+    Returns:
+        Single merged slot combining all periods in the group, with partial
+        discharge applied if needed to respect battery reserve
+    """
+    if len(group) == 1:
+        slot = group[0].copy()
+        # Check if single slot needs partial discharge
+        if battery_capacity_kwh and "battery_after" in slot:
+            min_reserve_kwh = (battery_capacity_kwh * min_battery_reserve_percent) / 100.0
+            if slot["battery_after"] < min_reserve_kwh:
+                # Reduce energy to stop at reserve
+                battery_before = slot.get("battery_before", 0)
+                available_energy = max(0, battery_before - min_reserve_kwh)
+                if available_energy < slot["energy_kwh"]:
+                    # Apply partial discharge
+                    reduction_ratio = (
+                        available_energy / slot["energy_kwh"] if slot["energy_kwh"] > 0 else 0
+                    )
+                    slot["energy_kwh"] = available_energy
+                    slot["revenue"] = slot.get("revenue", 0) * reduction_ratio
+                    slot["cost"] = slot.get("cost", 0) * reduction_ratio
+                    slot["duration_hours"] = slot.get("duration_hours", 0) * reduction_ratio
+                    slot["battery_after"] = min_reserve_kwh
+                    slot["partial_discharge"] = True
+                    _LOGGER.info(
+                        "Applied partial discharge to slot %s: reduced to %.2f kWh to respect %.0f%% reserve",
+                        slot["start"],
+                        available_energy,
+                        min_battery_reserve_percent,
+                    )
+        return slot
+
+    # Calculate combined metrics
+    total_energy = sum(slot.get("energy_kwh", 0) for slot in group)
+    total_revenue = sum(slot.get("revenue", 0) for slot in group)
+    total_cost = sum(slot.get("cost", 0) for slot in group)
+    total_duration = sum(slot.get("duration_hours", 0) for slot in group)
+
+    # Calculate weighted average price
+    if total_energy > 0:
+        weighted_price = (total_revenue if total_revenue > 0 else total_cost) / total_energy
+    else:
+        weighted_price = sum(slot.get("price", 0) for slot in group) / len(group)
+
+    # Create merged slot
+    merged = {
+        "start": group[0]["start"],
+        "end": group[-1]["end"],
+        "price": weighted_price,
+        "energy_kwh": total_energy,
+        "duration_hours": total_duration,
+        "slot_count": len(group),  # Track how many original slots were merged
+    }
+
+    # Add revenue or cost depending on what's present
+    if total_revenue > 0:
+        merged["revenue"] = total_revenue
+    if total_cost > 0:
+        merged["cost"] = total_cost
+
+    # Preserve battery state from first and last slot if available
+    if "battery_before" in group[0]:
+        merged["battery_before"] = group[0]["battery_before"]
+    if "battery_after" in group[-1]:
+        battery_after = group[-1]["battery_after"]
+
+        # Check if combined discharge violates minimum reserve
+        if battery_capacity_kwh:
+            min_reserve_kwh = (battery_capacity_kwh * min_battery_reserve_percent) / 100.0
+            if battery_after < min_reserve_kwh:
+                # Need to reduce total energy to respect reserve
+                battery_before = group[0]["battery_before"]
+                available_energy = max(0, battery_before - min_reserve_kwh)
+
+                if available_energy < total_energy:
+                    # Apply partial discharge to the combined period
+                    reduction_ratio = available_energy / total_energy if total_energy > 0 else 0
+                    merged["energy_kwh"] = available_energy
+                    merged["revenue"] = total_revenue * reduction_ratio
+                    merged["cost"] = total_cost * reduction_ratio
+                    merged["duration_hours"] = total_duration * reduction_ratio
+                    battery_after = min_reserve_kwh
+                    merged["partial_discharge"] = True
+                    _LOGGER.info(
+                        "Applied partial discharge to combined period %s-%s: reduced from %.2f to %.2f kWh to respect %.0f%% reserve",
+                        group[0]["start"],
+                        group[-1]["end"],
+                        total_energy,
+                        available_energy,
+                        min_battery_reserve_percent,
+                    )
+
+        merged["battery_after"] = battery_after
+
+    return merged

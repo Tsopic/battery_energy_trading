@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Battery Energy Trading Einrichtung",
+        "description": "Konfigurieren Sie Ihre Batterie-Management- und Energiehandelsintegration.",
+        "data": {
+          "nordpool_entity": "Nord Pool Preissensor",
+          "battery_level_entity": "Batteriestand-Sensor (%)",
+          "battery_capacity_entity": "Batteriekapazitäts-Sensor (kWh)",
+          "solar_power_entity": "Solarleistungs-Sensor (W) - Optional"
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entität nicht gefunden. Bitte überprüfen Sie die Entitäts-ID.",
+      "nordpool_missing_raw_today": "Dieser Nord Pool Sensor hat nicht das erforderliche 'raw_today' Attribut. Bitte wählen Sie einen gültigen Nord Pool Preissensor (normalerweise 'sensor.nordpool_kwh_...')."
+    },
+    "abort": {
+      "already_configured": "Diese Integration ist bereits konfiguriert.",
+      "nordpool_not_found": "Nord Pool Integration nicht gefunden. Bitte installieren und konfigurieren Sie die Nord Pool Integration (https://github.com/custom-components/nordpool) bevor Sie Battery Energy Trading einrichten."
+    }
+  }
+}

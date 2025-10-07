@@ -1,4 +1,5 @@
 """Number platform for Battery Energy Trading."""
+
 from __future__ import annotations
 
 import logging
@@ -10,35 +11,42 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    DOMAIN,
-    VERSION,
-    NUMBER_FORCED_DISCHARGE_HOURS,
-    NUMBER_MIN_EXPORT_PRICE,
-    NUMBER_MIN_FORCED_SELL_PRICE,
-    NUMBER_MAX_FORCE_CHARGE_PRICE,
-    NUMBER_FORCE_CHARGING_HOURS,
-    NUMBER_FORCE_CHARGE_TARGET,
-    NUMBER_MIN_BATTERY_LEVEL,
-    NUMBER_MIN_SOLAR_THRESHOLD,
-    NUMBER_DISCHARGE_RATE_KW,
-    NUMBER_CHARGE_RATE_KW,
+    DEFAULT_BATTERY_EFFICIENCY,
+    DEFAULT_BATTERY_LOW_THRESHOLD,
+    DEFAULT_CHARGE_RATE_KW,
+    DEFAULT_DISCHARGE_RATE_KW,
+    DEFAULT_FORCE_CHARGE_TARGET,
+    DEFAULT_FORCE_CHARGING_HOURS,
+    DEFAULT_FORCED_DISCHARGE_HOURS,
+    DEFAULT_MAX_FORCE_CHARGE_PRICE,
+    DEFAULT_MIN_ARBITRAGE_PROFIT,
+    DEFAULT_MIN_BATTERY_LEVEL,
     DEFAULT_MIN_EXPORT_PRICE,
     DEFAULT_MIN_FORCED_SELL_PRICE,
-    DEFAULT_MAX_FORCE_CHARGE_PRICE,
-    DEFAULT_FORCED_DISCHARGE_HOURS,
-    DEFAULT_FORCE_CHARGING_HOURS,
-    DEFAULT_FORCE_CHARGE_TARGET,
-    DEFAULT_MIN_BATTERY_LEVEL,
     DEFAULT_MIN_SOLAR_THRESHOLD,
-    DEFAULT_DISCHARGE_RATE_KW,
-    DEFAULT_CHARGE_RATE_KW,
+    DOMAIN,
+    NUMBER_BATTERY_EFFICIENCY,
+    NUMBER_BATTERY_LOW_THRESHOLD,
+    NUMBER_CHARGE_RATE_KW,
+    NUMBER_DISCHARGE_RATE_KW,
+    NUMBER_FORCE_CHARGE_TARGET,
+    NUMBER_FORCE_CHARGING_HOURS,
+    NUMBER_FORCED_DISCHARGE_HOURS,
+    NUMBER_MAX_FORCE_CHARGE_PRICE,
+    NUMBER_MIN_ARBITRAGE_PROFIT,
+    NUMBER_MIN_BATTERY_LEVEL,
+    NUMBER_MIN_EXPORT_PRICE,
+    NUMBER_MIN_FORCED_SELL_PRICE,
+    NUMBER_MIN_SOLAR_THRESHOLD,
+    VERSION,
 )
+
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
+    hass: HomeAssistant,  # noqa: ARG001
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
@@ -52,7 +60,7 @@ async def async_setup_entry(
         BatteryTradingNumber(
             entry,
             NUMBER_FORCED_DISCHARGE_HOURS,
-            "Forced Discharge Hours",
+            "Max Discharge Duration",  # Clearer: it's a duration limit across slots
             0,
             24,
             1,
@@ -96,7 +104,7 @@ async def async_setup_entry(
         BatteryTradingNumber(
             entry,
             NUMBER_FORCE_CHARGING_HOURS,
-            "Force Charging Hours",
+            "Max Charging Duration",  # Clearer: it's a duration limit across slots
             0,
             24,
             1,
@@ -159,6 +167,39 @@ async def async_setup_entry(
             "kW",
             "mdi:battery-arrow-down",
         ),
+        BatteryTradingNumber(
+            entry,
+            NUMBER_MIN_ARBITRAGE_PROFIT,
+            "Minimum Arbitrage Profit",
+            0.0,
+            5.0,
+            0.10,
+            DEFAULT_MIN_ARBITRAGE_PROFIT,
+            "EUR",
+            "mdi:currency-eur",
+        ),
+        BatteryTradingNumber(
+            entry,
+            NUMBER_BATTERY_EFFICIENCY,
+            "Battery Round-Trip Efficiency",
+            50,
+            95,
+            5,
+            DEFAULT_BATTERY_EFFICIENCY,
+            "%",
+            "mdi:battery-sync",
+        ),
+        BatteryTradingNumber(
+            entry,
+            NUMBER_BATTERY_LOW_THRESHOLD,
+            "Battery Low Warning Threshold",
+            5,
+            30,
+            1,
+            DEFAULT_BATTERY_LOW_THRESHOLD,
+            "%",
+            "mdi:battery-alert",
+        ),
     ]
 
     async_add_entities(numbers)
@@ -206,7 +247,10 @@ class BatteryTradingNumber(NumberEntity):
         if value < self._attr_native_min_value or value > self._attr_native_max_value:
             _LOGGER.warning(
                 "Value %.2f for %s is out of bounds (%.2f - %.2f), clamping",
-                value, self._attr_name, self._attr_native_min_value, self._attr_native_max_value
+                value,
+                self._attr_name,
+                self._attr_native_min_value,
+                self._attr_native_max_value,
             )
             value = max(self._attr_native_min_value, min(value, self._attr_native_max_value))
 

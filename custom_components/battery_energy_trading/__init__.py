@@ -1,17 +1,20 @@
 """Battery Energy Trading Integration for Home Assistant."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
+from .const import CONF_NORDPOOL_ENTITY
+from .coordinator import BatteryEnergyTradingCoordinator
 from .sungrow_helper import SungrowHelper
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +33,7 @@ PLATFORMS = [
 SERVICE_SYNC_SUNGROW_PARAMS = "sync_sungrow_parameters"
 
 
-async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:  # noqa: ARG001
     """Set up the Battery Energy Trading component."""
     hass.data.setdefault(DOMAIN, {})
 
@@ -91,7 +94,17 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Battery Energy Trading from a config entry."""
     hass.data.setdefault(DOMAIN, {})
+
+    # Create coordinator for Nord Pool data updates
+    nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
+    coordinator = BatteryEnergyTradingCoordinator(hass, nordpool_entity)
+
+    # Fetch initial data
+    await coordinator.async_config_entry_first_refresh()
+
+    # Store coordinator and config data
     hass.data[DOMAIN][entry.entry_id] = {
+        "coordinator": coordinator,
         "data": entry.data,
         "options": entry.options,
     }
