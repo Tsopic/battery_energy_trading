@@ -1,4 +1,5 @@
 """Sensor platform for Battery Energy Trading."""
+
 from __future__ import annotations
 
 import logging
@@ -55,6 +56,7 @@ async def async_setup_entry(
     """Set up Battery Energy Trading sensors."""
     # Get coordinator from hass.data
     from .const import DOMAIN
+
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
@@ -65,10 +67,38 @@ async def async_setup_entry(
     optimizer = EnergyOptimizer()
 
     sensors = [
-        ConfigurationSensor(hass, entry, coordinator, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity),
-        ArbitrageOpportunitiesSensor(hass, entry, coordinator, nordpool_entity, battery_capacity_entity, optimizer),
-        DischargeHoursSensor(hass, entry, coordinator, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
-        ChargingHoursSensor(hass, entry, coordinator, nordpool_entity, battery_level_entity, battery_capacity_entity, solar_forecast_entity, optimizer),
+        ConfigurationSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            battery_level_entity,
+            battery_capacity_entity,
+            solar_forecast_entity,
+        ),
+        ArbitrageOpportunitiesSensor(
+            hass, entry, coordinator, nordpool_entity, battery_capacity_entity, optimizer
+        ),
+        DischargeHoursSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            battery_level_entity,
+            battery_capacity_entity,
+            solar_forecast_entity,
+            optimizer,
+        ),
+        ChargingHoursSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            battery_level_entity,
+            battery_capacity_entity,
+            solar_forecast_entity,
+            optimizer,
+        ),
     ]
 
     async_add_entities(sensors)
@@ -102,6 +132,7 @@ class BatteryTradingSensor(BatteryTradingBaseEntity, SensorEntity):
 
         # Track additional entities beyond Nord Pool (coordinator handles Nord Pool)
         if self._tracked_entities and len(self._tracked_entities) > 1:
+
             @callback
             def sensor_state_listener(event):  # noqa: ARG001
                 """Handle state changes for non-Nord Pool entities."""
@@ -111,9 +142,7 @@ class BatteryTradingSensor(BatteryTradingBaseEntity, SensorEntity):
             other_entities = [e for e in self._tracked_entities if e != self._nordpool_entity]
             if other_entities:
                 self.async_on_remove(
-                    async_track_state_change_event(
-                        self.hass, other_entities, sensor_state_listener
-                    )
+                    async_track_state_change_event(self.hass, other_entities, sensor_state_listener)
                 )
 
 
@@ -179,7 +208,14 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
         optimizer: EnergyOptimizer,
     ) -> None:
         """Initialize the arbitrage sensor."""
-        super().__init__(hass, entry, coordinator, nordpool_entity, SENSOR_ARBITRAGE_OPPORTUNITIES, [nordpool_entity, battery_capacity_entity])
+        super().__init__(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            SENSOR_ARBITRAGE_OPPORTUNITIES,
+            [nordpool_entity, battery_capacity_entity],
+        )
         self._battery_capacity_entity = battery_capacity_entity
         self._optimizer = optimizer
         self._attr_name = "Arbitrage Opportunities"
@@ -198,8 +234,13 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
                 return "Insufficient data"
 
             battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
-            min_profit = self._get_number_entity_value(NUMBER_MIN_ARBITRAGE_PROFIT, DEFAULT_MIN_ARBITRAGE_PROFIT)
-            efficiency = self._get_number_entity_value(NUMBER_BATTERY_EFFICIENCY, DEFAULT_BATTERY_EFFICIENCY) / 100.0
+            min_profit = self._get_number_entity_value(
+                NUMBER_MIN_ARBITRAGE_PROFIT, DEFAULT_MIN_ARBITRAGE_PROFIT
+            )
+            efficiency = (
+                self._get_number_entity_value(NUMBER_BATTERY_EFFICIENCY, DEFAULT_BATTERY_EFFICIENCY)
+                / 100.0
+            )
 
             opportunities = self._optimizer.calculate_arbitrage_opportunities(
                 raw_today,
@@ -229,8 +270,13 @@ class ArbitrageOpportunitiesSensor(BatteryTradingSensor):
             return {}
 
         battery_capacity = self._get_float_state(self._battery_capacity_entity, 10.0)
-        min_profit = self._get_number_entity_value(NUMBER_MIN_ARBITRAGE_PROFIT, DEFAULT_MIN_ARBITRAGE_PROFIT)
-        efficiency = self._get_number_entity_value(NUMBER_BATTERY_EFFICIENCY, DEFAULT_BATTERY_EFFICIENCY) / 100.0
+        min_profit = self._get_number_entity_value(
+            NUMBER_MIN_ARBITRAGE_PROFIT, DEFAULT_MIN_ARBITRAGE_PROFIT
+        )
+        efficiency = (
+            self._get_number_entity_value(NUMBER_BATTERY_EFFICIENCY, DEFAULT_BATTERY_EFFICIENCY)
+            / 100.0
+        )
 
         opportunities = self._optimizer.calculate_arbitrage_opportunities(
             raw_today,
@@ -503,9 +549,7 @@ class ChargingHoursSensor(BatteryTradingSensor):
         target_level = self._get_number_entity_value(
             NUMBER_FORCE_CHARGE_TARGET, DEFAULT_FORCE_CHARGE_TARGET
         )
-        charge_rate = self._get_number_entity_value(
-            NUMBER_CHARGE_RATE_KW, DEFAULT_CHARGE_RATE_KW
-        )
+        charge_rate = self._get_number_entity_value(NUMBER_CHARGE_RATE_KW, DEFAULT_CHARGE_RATE_KW)
 
         return self._optimizer.select_charging_slots(
             raw_today,

@@ -1,4 +1,5 @@
 """Battery Energy Trading Integration for Home Assistant."""
+
 from __future__ import annotations
 
 import logging

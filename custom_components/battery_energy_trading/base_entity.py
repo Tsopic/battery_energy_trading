@@ -1,4 +1,5 @@
 """Base entity class for Battery Energy Trading."""
+
 from __future__ import annotations
 
 import logging
@@ -82,9 +83,7 @@ class BatteryTradingBaseEntity(CoordinatorEntity["BatteryEnergyTradingCoordinato
 
             return float(state.state)
         except (ValueError, TypeError) as err:
-            _LOGGER.warning(
-                "Failed to convert state of %s to float: %s", entity_id, err
-            )
+            _LOGGER.warning("Failed to convert state of %s to float: %s", entity_id, err)
             return default
 
     def _get_switch_state(self, switch_type: str) -> bool:
@@ -102,9 +101,7 @@ class BatteryTradingBaseEntity(CoordinatorEntity["BatteryEnergyTradingCoordinato
         try:
             state = self.hass.states.get(entity_id)
             if not state:
-                _LOGGER.debug(
-                    "Switch %s not found, defaulting to enabled", entity_id
-                )
+                _LOGGER.debug("Switch %s not found, defaulting to enabled", entity_id)
                 return True  # Default to enabled if switch not found
 
             is_on = state.state == "on"
@@ -160,7 +157,5 @@ class BatteryTradingBaseEntity(CoordinatorEntity["BatteryEnergyTradingCoordinato
             )
             return value
         except Exception as err:
-            _LOGGER.error(
-                "Error getting attribute %s from %s: %s", attribute, entity_id, err
-            )
+            _LOGGER.error("Error getting attribute %s from %s: %s", attribute, entity_id, err)
             return default

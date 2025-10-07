@@ -1,4 +1,5 @@
 """Sungrow integration helper for automatic parameter detection."""
+
 from __future__ import annotations
 
 import logging
@@ -148,7 +149,6 @@ class SungrowHelper:
 
         _LOGGER.warning("Unknown Sungrow inverter model: %s", model_name)
         return None
-
 
     def detect_inverter_model_from_entities(self) -> str | None:
         """

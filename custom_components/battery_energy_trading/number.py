@@ -1,4 +1,5 @@
 """Number platform for Battery Energy Trading."""
+
 from __future__ import annotations
 
 import logging
@@ -246,7 +247,10 @@ class BatteryTradingNumber(NumberEntity):
         if value < self._attr_native_min_value or value > self._attr_native_max_value:
             _LOGGER.warning(
                 "Value %.2f for %s is out of bounds (%.2f - %.2f), clamping",
-                value, self._attr_name, self._attr_native_min_value, self._attr_native_max_value
+                value,
+                self._attr_name,
+                self._attr_native_min_value,
+                self._attr_native_max_value,
             )
             value = max(self._attr_native_min_value, min(value, self._attr_native_max_value))
 

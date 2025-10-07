@@ -1,4 +1,5 @@
 """Constants for the Battery Energy Trading integration."""
+
 import json
 from pathlib import Path
 from typing import Final
@@ -31,7 +32,9 @@ DEFAULT_MIN_SOLAR_THRESHOLD: Final = 500
 DEFAULT_DISCHARGE_RATE_KW: Final = 5.0  # kW
 DEFAULT_CHARGE_RATE_KW: Final = 5.0  # kW
 DEFAULT_MIN_ARBITRAGE_PROFIT: Final = 0.50  # EUR
-DEFAULT_BATTERY_EFFICIENCY: Final = 70  # 70% round-trip efficiency (30% loss from charging/discharging/inverter losses)
+DEFAULT_BATTERY_EFFICIENCY: Final = (
+    70  # 70% round-trip efficiency (30% loss from charging/discharging/inverter losses)
+)
 DEFAULT_BATTERY_LOW_THRESHOLD: Final = 15  # % - Battery low warning threshold
 
 # Sensor types

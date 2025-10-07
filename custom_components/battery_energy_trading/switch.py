@@ -1,4 +1,5 @@
 """Switch platform for Battery Energy Trading."""
+
 from __future__ import annotations
 
 import logging

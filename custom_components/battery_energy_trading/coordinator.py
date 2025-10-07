@@ -1,4 +1,5 @@
 """DataUpdateCoordinator for Battery Energy Trading."""
+
 from __future__ import annotations
 
 import logging
@@ -51,14 +52,10 @@ class BatteryEnergyTradingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             state = self.hass.states.get(self._nordpool_entity)
 
             if not state:
-                raise UpdateFailed(
-                    f"Nord Pool entity {self._nordpool_entity} not found"
-                )
+                raise UpdateFailed(f"Nord Pool entity {self._nordpool_entity} not found")
 
             if state.state in ("unknown", "unavailable"):
-                raise UpdateFailed(
-                    f"Nord Pool entity {self._nordpool_entity} is {state.state}"
-                )
+                raise UpdateFailed(f"Nord Pool entity {self._nordpool_entity} is {state.state}")
 
             # Extract price data from attributes
             raw_today = state.attributes.get("raw_today")
