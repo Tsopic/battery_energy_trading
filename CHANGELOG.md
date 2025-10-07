@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2025-10-07
+
+### Changes
+
+- test: add comprehensive coordinator tests to improve coverage
+- fix: run ruff format to fix code formatting
+- fix: add backward-compatible ServiceCall helper for HA version compatibility
+- fix: resolve test failures for Python 3.13 compatibility
+- fix: resolve ruff linting errors for Python 3.13
+- fix: upgrade to Python 3.13 for CI and latest dependencies
+- fix: correct ruff.toml configuration syntax
+- docs: update documentation for v0.14.0 release
+- docs: add coverage and implementation summary reports
+- feat: implement all code review recommendations and quality improvements
+- fix: resolve test failures and add comprehensive code review
+- refactor: consolidate base entity helpers and improve testing infrastructure
+- docs: add executive refactoring summary with metrics and deployment plan
+- docs: add comprehensive manual testing guide for Home Assistant integration
+- docs: add comprehensive refactoring documentation for base entity consolidation
+- refactor(binary_sensor): make BatteryTradingBinarySensor inherit from BatteryTradingBaseEntity
+- refactor(sensor): make BatteryTradingSensor inherit from BatteryTradingBaseEntity
+- feat: add three user-configurable parameters for arbitrage and battery monitoring
+- feat: update arbitrage efficiency to 70% (30% loss) for realistic calculations
+- feat: add partial slot discharge and user-configurable battery reserve (v0.12.0)
+- feat: combine consecutive time slots for optimal battery management (v0.11.0)
+- fix: complete dashboard Jinja2 template removal
+- fix: replace Jinja2 templates with manual Nord Pool entity ID in dashboard
+
+
 ## [0.14.0] - 2025-10-06
 
 ### Added
