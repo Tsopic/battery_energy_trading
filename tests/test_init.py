@@ -30,8 +30,14 @@ async def test_async_setup(mock_hass):
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry(mock_hass_with_nordpool, mock_config_entry):
+@patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+async def test_async_setup_entry(mock_coordinator_class, mock_hass_with_nordpool, mock_config_entry):
     """Test async_setup_entry forwards platforms."""
+    # Mock coordinator instance
+    mock_coordinator = MagicMock()
+    mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+    mock_coordinator_class.return_value = mock_coordinator
+
     mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
 
     result = await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
@@ -50,8 +56,16 @@ async def test_async_setup_entry(mock_hass_with_nordpool, mock_config_entry):
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_initializes_domain_data(mock_hass_with_nordpool, mock_config_entry):
+@patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+async def test_async_setup_entry_initializes_domain_data(
+    mock_coordinator_class, mock_hass_with_nordpool, mock_config_entry
+):
     """Test async_setup_entry initializes domain data if not present."""
+    # Mock coordinator instance
+    mock_coordinator = MagicMock()
+    mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+    mock_coordinator_class.return_value = mock_coordinator
+
     # Ensure domain data not already set
     mock_hass_with_nordpool.data = {}
     mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
@@ -189,7 +203,9 @@ class TestSyncSungrowParamsService:
 
             # Call service without entry_id
             call = ServiceCall(
-                domain=DOMAIN, service=SERVICE_SYNC_SUNGROW_PARAMS, data={}
+                domain=DOMAIN,
+                service=SERVICE_SYNC_SUNGROW_PARAMS,
+                data={},
             )
             await service_handler(call)
 
@@ -209,7 +225,11 @@ class TestSyncSungrowParamsService:
         mock_hass.config_entries.async_entries = Mock(return_value=[mock_config_entry])
 
         # Call service without entry_id
-        call = ServiceCall(domain=DOMAIN, service=SERVICE_SYNC_SUNGROW_PARAMS, data={})
+        call = ServiceCall(
+            domain=DOMAIN,
+            service=SERVICE_SYNC_SUNGROW_PARAMS,
+            data={},
+        )
         await service_handler(call)
 
         # Should not try to update entry (logs error instead)
@@ -282,8 +302,16 @@ class TestDomainData:
     """Test domain data management."""
 
     @pytest.mark.asyncio
-    async def test_domain_data_structure(self, mock_hass_with_nordpool, mock_config_entry):
+    @patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+    async def test_domain_data_structure(
+        self, mock_coordinator_class, mock_hass_with_nordpool, mock_config_entry
+    ):
         """Test domain data has correct structure."""
+        # Mock coordinator instance
+        mock_coordinator = MagicMock()
+        mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+        mock_coordinator_class.return_value = mock_coordinator
+
         mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
 
         await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
@@ -295,8 +323,20 @@ class TestDomainData:
         assert entry_data["options"] == mock_config_entry.options
 
     @pytest.mark.asyncio
-    async def test_multiple_entries(self, mock_hass_with_nordpool_and_sungrow, mock_config_entry, mock_config_entry_sungrow):
+    @patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+    async def test_multiple_entries(
+        self,
+        mock_coordinator_class,
+        mock_hass_with_nordpool_and_sungrow,
+        mock_config_entry,
+        mock_config_entry_sungrow,
+    ):
         """Test multiple config entries are stored separately."""
+        # Mock coordinator instance
+        mock_coordinator = MagicMock()
+        mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+        mock_coordinator_class.return_value = mock_coordinator
+
         mock_hass_with_nordpool_and_sungrow.config_entries.async_forward_entry_setups = AsyncMock()
 
         await async_setup_entry(mock_hass_with_nordpool_and_sungrow, mock_config_entry)
@@ -317,8 +357,16 @@ class TestIntegrationLifecycle:
     """Test integration setup and teardown lifecycle."""
 
     @pytest.mark.asyncio
-    async def test_full_lifecycle(self, mock_hass_with_nordpool, mock_config_entry):
+    @patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+    async def test_full_lifecycle(
+        self, mock_coordinator_class, mock_hass_with_nordpool, mock_config_entry
+    ):
         """Test full setup and unload cycle."""
+        # Mock coordinator instance
+        mock_coordinator = MagicMock()
+        mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+        mock_coordinator_class.return_value = mock_coordinator
+
         mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
         mock_hass_with_nordpool.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
@@ -333,8 +381,16 @@ class TestIntegrationLifecycle:
         assert mock_config_entry.entry_id not in mock_hass_with_nordpool.data[DOMAIN]
 
     @pytest.mark.asyncio
-    async def test_setup_without_prior_async_setup(self, mock_hass_with_nordpool, mock_config_entry):
+    @patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+    async def test_setup_without_prior_async_setup(
+        self, mock_coordinator_class, mock_hass_with_nordpool, mock_config_entry
+    ):
         """Test async_setup_entry works without prior async_setup call."""
+        # Mock coordinator instance
+        mock_coordinator = MagicMock()
+        mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+        mock_coordinator_class.return_value = mock_coordinator
+
         # Don't call async_setup first
         mock_hass_with_nordpool.data = {}  # Empty hass data
         mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()

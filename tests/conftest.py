@@ -3,16 +3,26 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock, AsyncMock
 
+from homeassistant.core import HomeAssistant
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Enable custom integrations for all tests."""
+    return
+
 
 @pytest.fixture
 def mock_hass():
-    """Mock Home Assistant instance."""
-    hass = MagicMock()
+    """Mock Home Assistant instance with proper setup."""
+    hass = MagicMock(spec=HomeAssistant)
     hass.data = {}  # Use real dict instead of MagicMock
     hass.states = MagicMock()
     hass.states.async_all = Mock(return_value=[])
     hass.states.get = Mock(return_value=None)
     hass.config_entries = MagicMock()
+    hass.services = MagicMock()  # Add services mock
+    hass.services.async_register = Mock()
     return hass
 
 
