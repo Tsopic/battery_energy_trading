@@ -116,9 +116,7 @@ class BatteryEnergyTradingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._next_discharge_slot = next_discharge_slot
         self._next_charge_slot = next_charge_slot
 
-        _LOGGER.info(
-            "Recorded automation action: %s at %s", action, self._last_action_time
-        )
+        _LOGGER.info("Recorded automation action: %s at %s", action, self._last_action_time)
 
     def clear_action(self) -> None:
         """Clear automation action status (when automation stops)."""

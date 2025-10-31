@@ -124,9 +124,7 @@ class AutomationScriptGenerator:
 
     def generate_charging_automation(self) -> str:
         """Generate charging automation YAML."""
-        return CHARGING_AUTOMATION_TEMPLATE.format(
-            charge_rate_entity=self.charge_rate_entity
-        )
+        return CHARGING_AUTOMATION_TEMPLATE.format(charge_rate_entity=self.charge_rate_entity)
 
     def generate_all_automations(self) -> str:
         """Generate all automation scripts."""
