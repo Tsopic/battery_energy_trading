@@ -42,11 +42,15 @@ async def test_async_setup_entry(mock_hass, mock_config_entry, mock_coordinator)
     # Verify sensors were added
     assert async_add_entities.called
     sensors = async_add_entities.call_args[0][0]
-    assert len(sensors) == 4
+    assert len(sensors) == 5
     assert isinstance(sensors[0], ConfigurationSensor)
     assert isinstance(sensors[1], ArbitrageOpportunitiesSensor)
     assert isinstance(sensors[2], DischargeHoursSensor)
     assert isinstance(sensors[3], ChargingHoursSensor)
+
+    # Import AutomationStatusSensor for type checking
+    from custom_components.battery_energy_trading.sensor import AutomationStatusSensor
+    assert isinstance(sensors[4], AutomationStatusSensor)
 
 
 class TestBatteryTradingSensor:
@@ -594,3 +598,78 @@ class TestChargingHoursSensor:
 
         slots = charging_sensor._get_charging_slots()
         assert slots == []
+
+
+class TestAutomationStatusSensor:
+    """Test AutomationStatusSensor."""
+
+    @pytest.fixture
+    def automation_status_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
+        """Create an automation status sensor."""
+        from custom_components.battery_energy_trading.sensor import AutomationStatusSensor
+
+        return AutomationStatusSensor(
+            hass=mock_hass,
+            entry=mock_config_entry,
+            coordinator=mock_coordinator,
+            nordpool_entity="sensor.nordpool",
+        )
+
+    def test_automation_status_sensor_active_discharge(
+        self, automation_status_sensor, mock_coordinator
+    ):
+        """Test automation status sensor showing active discharge."""
+        # Mock coordinator data with active discharge action
+        mock_coordinator.data = {
+            "raw_today": [],
+            "raw_tomorrow": [],
+            "current_price": 0.15,
+            "last_action": "discharge",
+            "last_action_time": "2025-10-31T14:30:00",
+            "next_discharge_slot": "2025-10-31T16:00:00",
+            "automation_active": True,
+        }
+
+        assert automation_status_sensor.native_value == "Active - Discharging"
+        assert automation_status_sensor.extra_state_attributes["last_action"] == "discharge"
+        assert (
+            automation_status_sensor.extra_state_attributes["last_action_time"]
+            == "2025-10-31T14:30:00"
+        )
+        assert (
+            automation_status_sensor.extra_state_attributes["next_scheduled_action"]
+            == "2025-10-31T16:00:00"
+        )
+
+    def test_automation_status_sensor_active_charging(
+        self, automation_status_sensor, mock_coordinator
+    ):
+        """Test automation status sensor showing active charging."""
+        mock_coordinator.data = {
+            "raw_today": [],
+            "raw_tomorrow": [],
+            "current_price": 0.05,
+            "last_action": "charge",
+            "last_action_time": "2025-10-31T02:00:00",
+            "next_charge_slot": "2025-11-01T03:00:00",
+            "automation_active": True,
+        }
+
+        assert automation_status_sensor.native_value == "Active - Charging"
+        assert automation_status_sensor.extra_state_attributes["last_action"] == "charge"
+
+    def test_automation_status_sensor_idle(
+        self, automation_status_sensor, mock_coordinator
+    ):
+        """Test automation status sensor showing idle state."""
+        mock_coordinator.data = {
+            "raw_today": [],
+            "raw_tomorrow": [],
+            "current_price": 0.10,
+            "last_action": None,
+            "last_action_time": None,
+            "automation_active": False,
+        }
+
+        assert automation_status_sensor.native_value == "Idle"
+        assert automation_status_sensor.extra_state_attributes["last_action"] is None

@@ -140,11 +140,14 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        # Verify service registered with correct name
-        mock_hass.services.async_register.assert_called_once()
-        call_args = mock_hass.services.async_register.call_args
-        assert call_args[0][0] == DOMAIN
-        assert call_args[0][1] == SERVICE_SYNC_SUNGROW_PARAMS
+        # Verify all 3 services are registered
+        assert mock_hass.services.async_register.call_count == 3
+
+        # Check that sync_sungrow_parameters service was registered
+        registered_services = [call[0][1] for call in mock_hass.services.async_register.call_args_list]
+        assert SERVICE_SYNC_SUNGROW_PARAMS in registered_services
+        assert "generate_automation_scripts" in registered_services
+        assert "force_refresh" in registered_services
 
     @pytest.mark.asyncio
     async def test_handle_sync_with_entry_id(self, mock_hass, mock_config_entry_sungrow):
@@ -152,12 +155,28 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        # Get the registered service handler
-        service_handler = mock_hass.services.async_register.call_args[0][2]
+        # Get the sync_sungrow_parameters service handler
+        # Find the call that registered sync_sungrow_parameters
+        service_handler = None
+        for call in mock_hass.services.async_register.call_args_list:
+            if call[0][1] == SERVICE_SYNC_SUNGROW_PARAMS:
+                service_handler = call[0][2]
+                break
+
+        assert service_handler is not None
 
         # Setup mocks
         mock_hass.config_entries.async_get_entry = Mock(return_value=mock_config_entry_sungrow)
         mock_hass.config_entries.async_update_entry = Mock()
+
+        # Setup entry in hass.data
+        mock_hass.data[DOMAIN] = {
+            "test_sungrow_entry": {
+                "coordinator": MagicMock(),
+                "data": mock_config_entry_sungrow.data,
+                "options": mock_config_entry_sungrow.options,
+            }
+        }
 
         # Mock SungrowHelper
         with patch("custom_components.battery_energy_trading.SungrowHelper") as mock_helper_class:
@@ -195,12 +214,28 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        service_handler = mock_hass.services.async_register.call_args[0][2]
+        # Get the sync_sungrow_parameters service handler
+        service_handler = None
+        for call in mock_hass.services.async_register.call_args_list:
+            if call[0][1] == SERVICE_SYNC_SUNGROW_PARAMS:
+                service_handler = call[0][2]
+                break
+
+        assert service_handler is not None
 
         # Mock config entries list with auto-detected entry
         mock_hass.config_entries.async_entries = Mock(return_value=[mock_config_entry_sungrow])
         mock_hass.config_entries.async_get_entry = Mock(return_value=mock_config_entry_sungrow)
         mock_hass.config_entries.async_update_entry = Mock()
+
+        # Setup entry in hass.data
+        mock_hass.data[DOMAIN] = {
+            mock_config_entry_sungrow.entry_id: {
+                "coordinator": MagicMock(),
+                "data": mock_config_entry_sungrow.data,
+                "options": mock_config_entry_sungrow.options,
+            }
+        }
 
         with patch("custom_components.battery_energy_trading.SungrowHelper") as mock_helper_class:
             mock_helper = mock_helper_class.return_value
@@ -225,7 +260,14 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        service_handler = mock_hass.services.async_register.call_args[0][2]
+        # Get the sync_sungrow_parameters service handler
+        service_handler = None
+        for call in mock_hass.services.async_register.call_args_list:
+            if call[0][1] == SERVICE_SYNC_SUNGROW_PARAMS:
+                service_handler = call[0][2]
+                break
+
+        assert service_handler is not None
 
         # Mock config entries with non-auto-detected entry
         mock_config_entry.options = {}  # No auto_detected flag
@@ -244,7 +286,14 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        service_handler = mock_hass.services.async_register.call_args[0][2]
+        # Get the sync_sungrow_parameters service handler
+        service_handler = None
+        for call in mock_hass.services.async_register.call_args_list:
+            if call[0][1] == SERVICE_SYNC_SUNGROW_PARAMS:
+                service_handler = call[0][2]
+                break
+
+        assert service_handler is not None
 
         # Mock entry not found
         mock_hass.config_entries.async_get_entry = Mock(return_value=None)
@@ -265,7 +314,14 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        service_handler = mock_hass.services.async_register.call_args[0][2]
+        # Get the sync_sungrow_parameters service handler
+        service_handler = None
+        for call in mock_hass.services.async_register.call_args_list:
+            if call[0][1] == SERVICE_SYNC_SUNGROW_PARAMS:
+                service_handler = call[0][2]
+                break
+
+        assert service_handler is not None
 
         # Add extra option to entry
         mock_config_entry_sungrow.options = {
@@ -275,6 +331,15 @@ class TestSyncSungrowParamsService:
 
         mock_hass.config_entries.async_get_entry = Mock(return_value=mock_config_entry_sungrow)
         mock_hass.config_entries.async_update_entry = Mock()
+
+        # Setup entry in hass.data
+        mock_hass.data[DOMAIN] = {
+            mock_config_entry_sungrow.entry_id: {
+                "coordinator": MagicMock(),
+                "data": mock_config_entry_sungrow.data,
+                "options": mock_config_entry_sungrow.options,
+            }
+        }
 
         with patch("custom_components.battery_energy_trading.SungrowHelper") as mock_helper_class:
             mock_helper = mock_helper_class.return_value
