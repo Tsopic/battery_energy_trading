@@ -38,6 +38,7 @@ from .const import (
     NUMBER_MIN_BATTERY_LEVEL,
     NUMBER_MIN_FORCED_SELL_PRICE,
     SENSOR_ARBITRAGE_OPPORTUNITIES,
+    SENSOR_AUTOMATION_STATUS,
     SENSOR_CHARGING_HOURS,
     SENSOR_DISCHARGE_HOURS,
     SWITCH_ENABLE_MULTIDAY_OPTIMIZATION,
@@ -98,6 +99,12 @@ async def async_setup_entry(
             battery_capacity_entity,
             solar_forecast_entity,
             optimizer,
+        ),
+        AutomationStatusSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
         ),
     ]
 
@@ -562,3 +569,67 @@ class ChargingHoursSensor(BatteryTradingSensor):
             solar_forecast_data=solar_forecast_data,
             multiday_enabled=multiday_enabled,
         )
+
+
+class AutomationStatusSensor(BatteryTradingSensor):
+    """Sensor for tracking automation execution status and last actions."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        coordinator: Any,
+        nordpool_entity: str,
+    ) -> None:
+        """Initialize the automation status sensor."""
+        super().__init__(
+            hass=hass,
+            entry=entry,
+            coordinator=coordinator,
+            nordpool_entity=nordpool_entity,
+            sensor_type=SENSOR_AUTOMATION_STATUS,
+        )
+        self._attr_name = "Automation Status"
+        self._attr_icon = "mdi:robot"
+
+    @property
+    def native_value(self) -> str:
+        """Return the current automation status."""
+        if not self.coordinator.data:
+            return "Unknown"
+
+        automation_active = self.coordinator.data.get("automation_active", False)
+        last_action = self.coordinator.data.get("last_action")
+
+        if not automation_active or not last_action:
+            return "Idle"
+
+        if last_action == "discharge":
+            return "Active - Discharging"
+        if last_action == "charge":
+            return "Active - Charging"
+
+        return "Idle"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional state attributes."""
+        if not self.coordinator.data:
+            return {}
+
+        last_action = self.coordinator.data.get("last_action")
+        last_action_time = self.coordinator.data.get("last_action_time")
+
+        # Determine next scheduled action based on last action
+        next_scheduled = None
+        if last_action == "discharge":
+            next_scheduled = self.coordinator.data.get("next_discharge_slot")
+        elif last_action == "charge":
+            next_scheduled = self.coordinator.data.get("next_charge_slot")
+
+        return {
+            "last_action": last_action,
+            "last_action_time": last_action_time,
+            "next_scheduled_action": next_scheduled,
+            "automation_active": self.coordinator.data.get("automation_active", False),
+        }

@@ -132,6 +132,17 @@ The Sungrow Modbus integration provides these control entities:
 
 ## 🔄 Complete Automation Examples
 
+> **✨ NEW: Automatic Setup Available!**
+>
+> The integration now provides **automatic automation generation**. Instead of manually copying these examples, you can:
+> 1. Use the service `battery_energy_trading.generate_automation_scripts`
+> 2. Get tailored YAML for your exact configuration
+> 3. Set up trading in minutes instead of hours
+>
+> See **[Automatic Trading Setup Guide](../user-guide/automatic-trading-setup.md)** for the easiest way to get started.
+>
+> The manual examples below are provided for reference and advanced customization.
+
 ### 1. Smart Discharge Control (Recommended)
 
 This automation directly controls Sungrow's discharge power based on price slots:

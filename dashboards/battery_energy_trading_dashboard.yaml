@@ -142,6 +142,10 @@ cards:
         title: "🔋 Current Status"
         state_color: true
         entities:
+          - entity: sensor.battery_energy_trading_automation_status
+            name: "Automation Status"
+            icon: mdi:robot
+            secondary_info: last-changed
           - entity: binary_sensor.battery_energy_trading_forced_discharge
             name: "Discharging Now"
             icon: mdi:battery-arrow-up
@@ -157,6 +161,48 @@ cards:
           - entity: sensor.nordpool_kwh_se3_eur_3_10_025  # REPLACE WITH YOUR NORD POOL ENTITY
             name: "Current Price"
             icon: mdi:currency-eur
+
+      # Automation Management
+      - type: entities
+        title: "🤖 Automation Management"
+        entities:
+          - type: button
+            name: "Generate Automation Scripts"
+            icon: mdi:file-code
+            tap_action:
+              action: call-service
+              service: battery_energy_trading.generate_automation_scripts
+              service_data: {}
+          - type: button
+            name: "Force Refresh Calculations"
+            icon: mdi:refresh
+            tap_action:
+              action: call-service
+              service: battery_energy_trading.force_refresh
+              service_data: {}
+
+      # Automation Status Details
+      - type: markdown
+        title: "🤖 Automation Status Details"
+        content: |
+          **Current Status**: {{ states('sensor.battery_energy_trading_automation_status') }}
+
+          {% if state_attr('sensor.battery_energy_trading_automation_status', 'last_action') %}
+          **Last Action**: {{ state_attr('sensor.battery_energy_trading_automation_status', 'last_action') | title }}
+          {% if state_attr('sensor.battery_energy_trading_automation_status', 'last_action_time') %}
+          **Last Action Time**: {{ state_attr('sensor.battery_energy_trading_automation_status', 'last_action_time') }}
+          {% endif %}
+          {% else %}
+          **Last Action**: None
+          {% endif %}
+
+          {% if state_attr('sensor.battery_energy_trading_automation_status', 'next_scheduled_action') %}
+          **Next Scheduled Action**: {{ state_attr('sensor.battery_energy_trading_automation_status', 'next_scheduled_action') }}
+          {% else %}
+          **Next Scheduled Action**: None
+          {% endif %}
+
+          **Automation Active**: {{ state_attr('sensor.battery_energy_trading_automation_status', 'automation_active') }}
 
   # Daily Timeline View
   - type: vertical-stack

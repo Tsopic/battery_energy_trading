@@ -27,6 +27,7 @@ Based on the dashboard, here are the entities that should exist:
 
 ### Sensors
 - `sensor.battery_energy_trading_configuration` - Configuration info
+- `sensor.battery_energy_trading_automation_status` - ✨ NEW: Automation execution status
 - `sensor.battery_energy_trading_discharge_time_slots` - Discharge schedule
 - `sensor.battery_energy_trading_charging_time_slots` - Charging schedule
 - `sensor.battery_energy_trading_arbitrage_opportunities` - Arbitrage opportunities
@@ -55,6 +56,34 @@ Based on the dashboard, here are the entities that should exist:
 - `number.battery_energy_trading_min_solar_threshold` - Min solar threshold W
 - `number.battery_energy_trading_discharge_rate_kw` - Discharge rate kW
 - `number.battery_energy_trading_charge_rate_kw` - Charge rate kW
+
+### Services
+- `battery_energy_trading.generate_automation_scripts` - ✨ NEW: Generate automation YAML
+- `battery_energy_trading.force_refresh` - ✨ NEW: Force recalculation of slots
+- `battery_energy_trading.sync_sungrow_parameters` - Sync Sungrow auto-detected parameters
+
+## Automation Status Sensor Details
+
+The `sensor.battery_energy_trading_automation_status` sensor provides real-time monitoring of automation execution:
+
+**States:**
+- `Idle` - No automation currently active
+- `Active - Discharging` - Battery is actively discharging to grid
+- `Active - Charging` - Battery is actively charging from grid
+- `Unknown` - Sensor initializing or coordinator error
+
+**Attributes:**
+- `last_action` - Last action taken (`"charge"`, `"discharge"`, or `null`)
+- `last_action_time` - ISO timestamp of last action (e.g., `"2025-10-31T14:30:00"`)
+- `next_scheduled_action` - Next scheduled action time (ISO format)
+- `automation_active` - Boolean indicating if automation is currently active
+
+**Usage in Dashboard:**
+The automation status sensor is used in:
+1. **Current Status** section - Shows current automation state
+2. **Automation Status Details** card - Displays all attributes with formatting
+
+See [Automatic Trading Setup Guide](automatic-trading-setup.md) for integration with Sungrow inverter control.
 
 ## Troubleshooting "Entity not found"
 

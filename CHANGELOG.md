@@ -2,6 +2,118 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0] - 2025-10-31
+
+### Added - Automatic Energy Trading 🤖
+
+This release introduces **automatic automation generation** for fully automatic battery trading with complete observability and user control.
+
+#### Core Features
+- **Automation Script Generator** (`automation_helper.py`)
+  - `AutomationScriptGenerator` class for generating Sungrow control automations
+  - Pre-built YAML templates for discharge and charging control
+  - Dynamic entity ID substitution for user configuration
+  - Ready-to-use automation YAML with proper Jinja2 escaping
+
+- **Service Calls for Automation Management**
+  - `battery_energy_trading.generate_automation_scripts` - Generate automation YAML tailored to user's configuration
+  - `battery_energy_trading.force_refresh` - Force immediate recalculation of charge/discharge slots
+  - Services registered in `async_setup` per Home Assistant best practices
+  - Event firing (`battery_energy_trading_automation_generated`) for UI notification
+  - Optional `config_entry_id` parameter with auto-detection fallback
+
+- **Automation Status Monitoring**
+  - `sensor.battery_energy_trading_automation_status` - Real-time automation execution status
+  - States: `Idle`, `Active - Discharging`, `Active - Charging`, `Unknown`
+  - Attributes: `last_action`, `last_action_time`, `next_scheduled_action`, `automation_active`
+  - Coordinator-based tracking for accurate state representation
+
+- **Coordinator Action Tracking**
+  - `record_action()` method - Track automation state changes with timestamp
+  - `clear_action()` method - Reset automation status when returning to self-consumption
+  - Action data included in coordinator updates for all entities
+  - ISO timestamp formatting for consistent datetime handling
+
+#### Dashboard Enhancements
+- **Automation Management Section**
+  - "Generate Automation Scripts" button
+  - "Force Refresh Calculations" button
+  - Direct service calls from dashboard UI
+
+- **Automation Status Cards**
+  - Automation status sensor in Current Status section
+  - Detailed status card showing last action, timestamps, next scheduled action
+  - Real-time updates via coordinator polling
+
+#### Documentation
+- **Comprehensive Automatic Trading Guide** (`docs/user-guide/automatic-trading-setup.md`)
+  - Step-by-step setup instructions
+  - Automation logic explanations
+  - Testing procedures (dry run and live testing)
+  - Troubleshooting guide
+  - Best practices for solar-first and grid trading strategies
+  - Customization examples
+
+- **Updated Integration Guides**
+  - Sungrow guide links to automatic setup
+  - Dashboard entity reference includes new entities and services
+  - Updated docs README with new guide
+
+### Changed
+- **Service Registration Architecture**: Services now registered in `async_setup` instead of `async_setup_entry` (Home Assistant best practice)
+  - Allows service validation even without loaded config entries
+  - Provides informative errors when configuration is missing
+  - Consistent with HA core integration patterns
+
+### Testing
+- **Integration Tests** (`test_integration_automation.py`)
+  - 8 comprehensive integration tests covering end-to-end flows
+  - Full setup flow testing (async_setup → async_setup_entry → services)
+  - Coordinator action tracking with sensor updates
+  - Service call sequences (simulating dashboard button clicks)
+  - End-to-end automation monitoring (10-step workflow test)
+  - **Total test count**: 258 tests (all passing)
+
+### Technical Details
+- **Sensor Count**: 5 sensors (was 4) - added automation_status sensor
+- **Service Count**: 3 services (was 1) - added generate_automation_scripts, force_refresh
+- **Coordinator Fields**: 5 tracking fields - last_action, last_action_time, automation_active, next_discharge_slot, next_charge_slot
+- **Test Coverage**: Maintained at 90%+ with 8 new integration tests
+- **Code Quality**: All pre-commit hooks passing (ruff, mypy, bandit)
+
+### Files Changed
+- **New Files**:
+  - `custom_components/battery_energy_trading/automation_helper.py`
+  - `docs/user-guide/automatic-trading-setup.md`
+  - `tests/test_automation_helper.py`
+  - `tests/test_integration_automation.py`
+
+- **Modified Files**:
+  - `custom_components/battery_energy_trading/__init__.py` (service registration refactor)
+  - `custom_components/battery_energy_trading/services.yaml` (new services)
+  - `custom_components/battery_energy_trading/sensor.py` (AutomationStatusSensor)
+  - `custom_components/battery_energy_trading/const.py` (SENSOR_AUTOMATION_STATUS)
+  - `custom_components/battery_energy_trading/coordinator.py` (action tracking)
+  - `dashboards/battery_energy_trading_dashboard.yaml` (automation cards)
+  - `docs/integrations/sungrow.md` (automatic setup link)
+  - `docs/user-guide/dashboard-entity-reference.md` (new entities/services)
+  - `docs/README.md` (updated index)
+  - `tests/test_init.py` (updated service tests)
+  - `tests/test_sensors.py` (updated sensor count)
+  - `tests/test_coordinator.py` (action tracking tests)
+
+### User Impact
+This release makes automatic battery trading **significantly easier** to set up:
+- **Before**: Users manually write complex automations from examples (30-60 minutes)
+- **After**: Service generates tailored automations automatically (5 minutes)
+- **Monitoring**: Full visibility into automation status and last actions
+- **Control**: Dashboard buttons for generation and refresh
+
+### Upgrade Notes
+No breaking changes. Existing setups continue to work unchanged. New features are opt-in via dashboard buttons or service calls.
+
+---
+
 ## [0.12.0] - 2025-10-07
 
 ### Changes
