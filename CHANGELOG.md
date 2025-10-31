@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] - 2025-10-31
+
+### Changes
+
+- style: run ruff format to fix code formatting
+- feat: update to v0.15.0 with automatic energy trading
+- test: add comprehensive integration tests for automation flow
+- docs: update dashboard entity reference with new features
+- docs: add comprehensive automatic trading setup guide
+- feat: add coordinator action tracking for automation monitoring
+- feat: enhance dashboard with automation status and service buttons
+- feat: add automation status sensor for real-time action tracking
+- fix: move service registration to async_setup per HA best practices
+- feat: add generate_automation_scripts and force_refresh services
+- feat: add automation script generator for Sungrow control
+
+
 ## [0.15.0] - 2025-10-31
 
 ### Added - Automatic Energy Trading 🤖
