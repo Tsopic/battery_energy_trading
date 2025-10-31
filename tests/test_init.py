@@ -373,15 +373,14 @@ class TestAutomationServices:
         service_calls = []
         original_register = mock_hass_with_nordpool.services.async_register
 
-        def track_register(domain, service, handler):
+        def track_register(domain, service, handler, **kwargs):
             service_calls.append((domain, service))
-            return original_register(domain, service, handler)
+            return original_register(domain, service, handler, **kwargs)
 
-        # Make has_service return False initially so services get registered
-        mock_hass_with_nordpool.services.has_service = Mock(return_value=False)
         mock_hass_with_nordpool.services.async_register = track_register
 
-        await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
+        # Services are registered in async_setup, not async_setup_entry
+        await async_setup(mock_hass_with_nordpool, {})
 
         # Verify services were registered
         assert (DOMAIN, "generate_automation_scripts") in service_calls

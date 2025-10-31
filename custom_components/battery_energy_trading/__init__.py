@@ -76,45 +76,21 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:  # n
             new_options["inverter_model"],
         )
 
-    # Register service
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SYNC_SUNGROW_PARAMS,
-        handle_sync_sungrow_params,
-        schema=vol.Schema(
-            {
-                vol.Optional("entry_id"): cv.string,
-            }
-        ),
-    )
-
-    return True
-
-
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Battery Energy Trading from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
-
-    # Create coordinator for Nord Pool data updates
-    nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
-    coordinator = BatteryEnergyTradingCoordinator(hass, nordpool_entity)
-
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
-
-    # Store coordinator and config data
-    hass.data[DOMAIN][entry.entry_id] = {
-        "coordinator": coordinator,
-        "data": entry.data,
-        "options": entry.options,
-    }
-
-    # Register automation services (only once)
     async def handle_generate_automation_scripts(call: ServiceCall) -> None:
         """Handle generate_automation_scripts service call."""
         from .automation_helper import AutomationScriptGenerator
 
-        config_entry_id = call.data.get("config_entry_id", entry.entry_id)
+        config_entry_id = call.data.get("config_entry_id")
+
+        # Find first entry if not specified
+        if not config_entry_id:
+            entries = hass.config_entries.async_entries(DOMAIN)
+            if entries:
+                config_entry_id = entries[0].entry_id
+            else:
+                _LOGGER.error("No Battery Energy Trading config entries found")
+                return
+
         target_entry = hass.config_entries.async_get_entry(config_entry_id)
 
         if not target_entry:
@@ -141,7 +117,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def handle_force_refresh(call: ServiceCall) -> None:
         """Handle force_refresh service call."""
-        config_entry_id = call.data.get("config_entry_id", entry.entry_id)
+        config_entry_id = call.data.get("config_entry_id")
+
+        # Find first entry if not specified
+        if not config_entry_id:
+            entries = hass.config_entries.async_entries(DOMAIN)
+            if entries:
+                config_entry_id = entries[0].entry_id
+            else:
+                _LOGGER.error("No Battery Energy Trading config entries found")
+                return
+
         entry_data = hass.data[DOMAIN].get(config_entry_id)
 
         if not entry_data:
@@ -152,20 +138,50 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coord.async_request_refresh()
         _LOGGER.info("Forced coordinator refresh for entry %s", config_entry_id)
 
-    # Register services on first setup
-    if not hass.services.has_service(DOMAIN, "generate_automation_scripts"):
-        hass.services.async_register(
-            DOMAIN,
-            "generate_automation_scripts",
-            handle_generate_automation_scripts,
-        )
+    # Register services
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SYNC_SUNGROW_PARAMS,
+        handle_sync_sungrow_params,
+        schema=vol.Schema(
+            {
+                vol.Optional("entry_id"): cv.string,
+            }
+        ),
+    )
 
-    if not hass.services.has_service(DOMAIN, "force_refresh"):
-        hass.services.async_register(
-            DOMAIN,
-            "force_refresh",
-            handle_force_refresh,
-        )
+    hass.services.async_register(
+        DOMAIN,
+        "generate_automation_scripts",
+        handle_generate_automation_scripts,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        "force_refresh",
+        handle_force_refresh,
+    )
+
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Battery Energy Trading from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
+
+    # Create coordinator for Nord Pool data updates
+    nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
+    coordinator = BatteryEnergyTradingCoordinator(hass, nordpool_entity)
+
+    # Fetch initial data
+    await coordinator.async_config_entry_first_refresh()
+
+    # Store coordinator and config data
+    hass.data[DOMAIN][entry.entry_id] = {
+        "coordinator": coordinator,
+        "data": entry.data,
+        "options": entry.options,
+    }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
