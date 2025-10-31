@@ -109,6 +109,64 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "options": entry.options,
     }
 
+    # Register automation services (only once)
+    async def handle_generate_automation_scripts(call: ServiceCall) -> None:
+        """Handle generate_automation_scripts service call."""
+        from .automation_helper import AutomationScriptGenerator
+
+        config_entry_id = call.data.get("config_entry_id", entry.entry_id)
+        target_entry = hass.config_entries.async_get_entry(config_entry_id)
+
+        if not target_entry:
+            _LOGGER.error("Config entry %s not found", config_entry_id)
+            return
+
+        generator = AutomationScriptGenerator(
+            nordpool_entity=target_entry.data[CONF_NORDPOOL_ENTITY],
+            battery_level_entity=target_entry.data.get("battery_level_entity", ""),
+        )
+
+        automation_yaml = generator.generate_all_automations()
+
+        # Store in hass.data for retrieval
+        hass.data[DOMAIN][f"{config_entry_id}_automations"] = automation_yaml
+
+        _LOGGER.info("Generated automation scripts for entry %s", config_entry_id)
+
+        # Fire event for UI notification
+        hass.bus.async_fire(
+            f"{DOMAIN}_automation_generated",
+            {"config_entry_id": config_entry_id, "yaml": automation_yaml},
+        )
+
+    async def handle_force_refresh(call: ServiceCall) -> None:
+        """Handle force_refresh service call."""
+        config_entry_id = call.data.get("config_entry_id", entry.entry_id)
+        entry_data = hass.data[DOMAIN].get(config_entry_id)
+
+        if not entry_data:
+            _LOGGER.error("Config entry %s not found in hass.data", config_entry_id)
+            return
+
+        coord = entry_data["coordinator"]
+        await coord.async_request_refresh()
+        _LOGGER.info("Forced coordinator refresh for entry %s", config_entry_id)
+
+    # Register services on first setup
+    if not hass.services.has_service(DOMAIN, "generate_automation_scripts"):
+        hass.services.async_register(
+            DOMAIN,
+            "generate_automation_scripts",
+            handle_generate_automation_scripts,
+        )
+
+    if not hass.services.has_service(DOMAIN, "force_refresh"):
+        hass.services.async_register(
+            DOMAIN,
+            "force_refresh",
+            handle_force_refresh,
+        )
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True

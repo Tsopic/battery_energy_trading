@@ -27,3 +27,25 @@ create_dashboard:
 reload_configuration:
   name: Reload Configuration
   description: Reloads the integration configuration and recalculates all schedules
+
+generate_automation_scripts:
+  name: Generate Automation Scripts
+  description: Generate Home Assistant automation scripts for Sungrow inverter control
+  fields:
+    config_entry_id:
+      name: Config Entry ID
+      description: Configuration entry ID (optional, uses default if not specified)
+      required: false
+      selector:
+        text:
+
+force_refresh:
+  name: Force Refresh
+  description: Force immediate re-calculation of charge/discharge slots
+  fields:
+    config_entry_id:
+      name: Config Entry ID
+      description: Configuration entry ID (optional, uses default if not specified)
+      required: false
+      selector:
+        text:

@@ -353,6 +353,41 @@ class TestDomainData:
         )
 
 
+class TestAutomationServices:
+    """Test automation service calls."""
+
+    @pytest.mark.asyncio
+    @patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+    async def test_service_generate_automation_scripts(
+        self, mock_coordinator_class, mock_hass_with_nordpool, mock_config_entry
+    ):
+        """Test generate_automation_scripts service."""
+        # Mock coordinator instance
+        mock_coordinator = MagicMock()
+        mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+        mock_coordinator_class.return_value = mock_coordinator
+
+        mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
+
+        # Track service registration calls
+        service_calls = []
+        original_register = mock_hass_with_nordpool.services.async_register
+
+        def track_register(domain, service, handler):
+            service_calls.append((domain, service))
+            return original_register(domain, service, handler)
+
+        # Make has_service return False initially so services get registered
+        mock_hass_with_nordpool.services.has_service = Mock(return_value=False)
+        mock_hass_with_nordpool.services.async_register = track_register
+
+        await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
+
+        # Verify services were registered
+        assert (DOMAIN, "generate_automation_scripts") in service_calls
+        assert (DOMAIN, "force_refresh") in service_calls
+
+
 class TestIntegrationLifecycle:
     """Test integration setup and teardown lifecycle."""
 
