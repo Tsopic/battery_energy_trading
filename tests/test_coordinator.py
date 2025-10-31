@@ -135,3 +135,69 @@ async def test_coordinator_update_exception_handling(mock_hass):
 
     with pytest.raises(UpdateFailed, match="Error communicating with Nord Pool"):
         await coordinator._async_update_data()
+
+
+@pytest.mark.asyncio
+async def test_coordinator_record_action(mock_hass, mock_nord_pool_state):
+    """Test recording automation actions."""
+    mock_hass.states.get = MagicMock(return_value=mock_nord_pool_state)
+
+    coordinator = BatteryEnergyTradingCoordinator(mock_hass, "sensor.nordpool_test")
+
+    # Record a discharge action
+    coordinator.record_action(
+        action="discharge",
+        next_discharge_slot="2025-10-31T16:00:00",
+        next_charge_slot="2025-11-01T02:00:00",
+    )
+
+    # Verify tracking fields are set
+    assert coordinator._last_action == "discharge"
+    assert coordinator._last_action_time is not None
+    assert coordinator._automation_active is True
+    assert coordinator._next_discharge_slot == "2025-10-31T16:00:00"
+    assert coordinator._next_charge_slot == "2025-11-01T02:00:00"
+
+    # Verify data includes tracking information
+    data = await coordinator._async_update_data()
+    assert data["last_action"] == "discharge"
+    assert data["last_action_time"] is not None
+    assert data["automation_active"] is True
+    assert data["next_discharge_slot"] == "2025-10-31T16:00:00"
+    assert data["next_charge_slot"] == "2025-11-01T02:00:00"
+
+
+@pytest.mark.asyncio
+async def test_coordinator_clear_action(mock_hass, mock_nord_pool_state):
+    """Test clearing automation action status."""
+    mock_hass.states.get = MagicMock(return_value=mock_nord_pool_state)
+
+    coordinator = BatteryEnergyTradingCoordinator(mock_hass, "sensor.nordpool_test")
+
+    # Record an action first
+    coordinator.record_action("charge")
+    assert coordinator._automation_active is True
+
+    # Clear the action
+    coordinator.clear_action()
+    assert coordinator._automation_active is False
+
+    # Verify data shows automation is not active
+    data = await coordinator._async_update_data()
+    assert data["automation_active"] is False
+
+
+@pytest.mark.asyncio
+async def test_coordinator_action_tracking_in_update_data(mock_hass, mock_nord_pool_state):
+    """Test that action tracking data is included in update data by default."""
+    mock_hass.states.get = MagicMock(return_value=mock_nord_pool_state)
+
+    coordinator = BatteryEnergyTradingCoordinator(mock_hass, "sensor.nordpool_test")
+
+    # Before recording any action
+    data = await coordinator._async_update_data()
+    assert data["last_action"] is None
+    assert data["last_action_time"] is None
+    assert data["automation_active"] is False
+    assert data["next_discharge_slot"] is None
+    assert data["next_charge_slot"] is None

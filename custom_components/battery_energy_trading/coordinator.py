@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -38,6 +38,13 @@ class BatteryEnergyTradingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=60),  # Poll every 60 seconds
         )
         self._nordpool_entity = nordpool_entity
+
+        # Action tracking for automation monitoring
+        self._last_action: str | None = None
+        self._last_action_time: str | None = None
+        self._automation_active: bool = False
+        self._next_discharge_slot: str | None = None
+        self._next_charge_slot: str | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from Nord Pool sensor.
@@ -78,8 +85,42 @@ class BatteryEnergyTradingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "current_price": state.state,
                 "unit": state.attributes.get("unit"),
                 "currency": state.attributes.get("currency"),
+                # Action tracking data for automation monitoring
+                "last_action": self._last_action,
+                "last_action_time": self._last_action_time,
+                "automation_active": self._automation_active,
+                "next_discharge_slot": self._next_discharge_slot,
+                "next_charge_slot": self._next_charge_slot,
             }
 
         except Exception as err:
             _LOGGER.error("Error updating Nord Pool data: %s", err, exc_info=True)
             raise UpdateFailed(f"Error communicating with Nord Pool: {err}") from err
+
+    def record_action(
+        self,
+        action: str,
+        next_discharge_slot: str | None = None,
+        next_charge_slot: str | None = None,
+    ) -> None:
+        """Record automation action for status tracking.
+
+        Args:
+            action: Action type ("charge" or "discharge")
+            next_discharge_slot: Next scheduled discharge slot time (ISO format)
+            next_charge_slot: Next scheduled charge slot time (ISO format)
+        """
+        self._last_action = action
+        self._last_action_time = datetime.now().isoformat()
+        self._automation_active = True
+        self._next_discharge_slot = next_discharge_slot
+        self._next_charge_slot = next_charge_slot
+
+        _LOGGER.info(
+            "Recorded automation action: %s at %s", action, self._last_action_time
+        )
+
+    def clear_action(self) -> None:
+        """Clear automation action status (when automation stops)."""
+        self._automation_active = False
+        _LOGGER.info("Cleared automation action status")
