@@ -17,6 +17,7 @@ End-user documentation for installation, configuration, and usage.
 **[User Guide Index](user-guide/README.md)**
 
 - [Installation Guide](../INSTALLATION.md) - HACS, pip, and manual installation
+- [Automatic Trading Setup](user-guide/automatic-trading-setup.md) - ✨ NEW: Automated setup with generated automations
 - [Dashboard Setup](user-guide/dashboard-setup.md) - Dashboard installation and configuration
 - [Dashboard Entity Reference](user-guide/dashboard-entity-reference.md) - Entity list and descriptions
 - [Terminology Guide](TERMINOLOGY.md) - Understanding slots, hours, and key concepts
@@ -78,6 +79,7 @@ docs/
 │
 ├── user-guide/                        # End-user documentation
 │   ├── README.md                      # User guide index
+│   ├── automatic-trading-setup.md     # Automatic automation generation (NEW)
 │   ├── dashboard-setup.md             # Dashboard setup guide
 │   └── dashboard-entity-reference.md  # Dashboard entity list
 │
