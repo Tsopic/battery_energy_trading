@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0] - 2025-12-02
+
+### Changes
+
+- refactor: complete codebase coherence review
+- docs: add codebase coherence review plan
+- fix(dashboard): correct entity IDs to match actual HA entity names
+- feat(dashboard): add AI observability section
+- chore(ai): finalize module exports and fix linting
+- feat(ai): add AI status sensor for monitoring model state
+- feat(ai): add AI service definitions and handlers
+- feat(ai): implement training orchestrator
+- feat(ai): implement Q-learning decision optimizer
+- feat(ai): implement load forecaster with heat pump modeling
+- feat(ai): implement solar predictor correction model
+- feat(ai): add base model interface
+- feat(ai): implement feature engineering for ML models
+- feat(ai): implement data extractor for HA statistics
+- feat(ai): add AI module structure and configuration
+- chore: add AI dependencies to manifest
+- docs: add detailed AI implementation plan
+- docs: add AI smart battery management design plan
+
+
 ## [0.13.0] - 2025-10-31
 
 ### Changes
