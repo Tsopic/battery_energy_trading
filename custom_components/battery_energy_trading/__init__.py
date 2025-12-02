@@ -8,9 +8,11 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
+from .ai import AIConfig, AITrainer
 from .const import CONF_NORDPOOL_ENTITY
 from .coordinator import BatteryEnergyTradingCoordinator
 from .sungrow_helper import SungrowHelper
@@ -162,7 +164,124 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:  # n
         handle_force_refresh,
     )
 
+    # AI Services
+    async def handle_train_ai_models(call: ServiceCall) -> None:
+        """Handle train AI models service."""
+        entry_data = next(iter(hass.data.get(DOMAIN, {}).values()), None)
+        if not entry_data or "ai_trainer" not in entry_data:
+            raise HomeAssistantError("AI trainer not available")
+
+        trainer = entry_data["ai_trainer"]
+        _days = call.data.get("days_of_data", 90)
+
+        result = await trainer.train_all_models()
+
+        hass.bus.async_fire(
+            f"{DOMAIN}_ai_training_complete",
+            {"success": result["success"], "metrics": result.get("models", {})},
+        )
+
+    async def handle_get_ai_prediction(call: ServiceCall) -> dict[str, Any]:  # noqa: ARG001
+        """Handle get AI prediction service."""
+        entry_data = next(iter(hass.data.get(DOMAIN, {}).values()), None)
+        if not entry_data or "ai_trainer" not in entry_data:
+            raise HomeAssistantError("AI trainer not available")
+
+        trainer = entry_data["ai_trainer"]
+        coordinator = entry_data["coordinator"]
+
+        if not trainer.decision_optimizer or not trainer.decision_optimizer.is_trained:
+            return {"recommendation": "HOLD", "confidence": 0, "reason": "AI not trained"}
+
+        # Get current state from coordinator
+        current_price = coordinator.data.get("current_price", 0.10)
+        prices_today = coordinator.data.get("raw_today", [])
+
+        # Get battery level from config (would need actual entity state in production)
+        battery_level = 50  # Default placeholder
+
+        # Get recommendation
+        action, confidence = trainer.decision_optimizer.get_recommendation(
+            battery_level=int(battery_level / 20),  # Discretize
+            price_level=_get_price_level(current_price, prices_today),
+            solar_level=1,  # Placeholder
+            load_level=1,  # Placeholder
+            hour_period=_get_hour_period(),
+        )
+
+        return {
+            "recommendation": action.name,
+            "confidence": round(confidence, 2),
+            "reason": f"Based on current price {current_price:.3f} EUR/kWh",
+        }
+
+    async def handle_set_ai_mode(call: ServiceCall) -> None:
+        """Handle set AI mode service."""
+        enabled = call.data.get("enabled", False)
+
+        for entry_data in hass.data.get(DOMAIN, {}).values():
+            if isinstance(entry_data, dict):
+                entry_data["ai_enabled"] = enabled
+
+        hass.bus.async_fire(f"{DOMAIN}_ai_mode_changed", {"enabled": enabled})
+
+    hass.services.async_register(
+        DOMAIN,
+        "train_ai_models",
+        handle_train_ai_models,
+        schema=vol.Schema(
+            {
+                vol.Optional("days_of_data", default=90): vol.All(
+                    vol.Coerce(int), vol.Range(min=30, max=365)
+                ),
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "get_ai_prediction",
+        handle_get_ai_prediction,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "set_ai_mode",
+        handle_set_ai_mode,
+        schema=vol.Schema(
+            {
+                vol.Required("enabled"): cv.boolean,
+            }
+        ),
+    )
+
     return True
+
+
+def _get_price_level(price: float, prices: list[dict[str, Any]]) -> int:
+    """Get price level (0-4) based on percentile."""
+    from datetime import datetime
+
+    values = [p.get("value", 0) for p in prices if isinstance(p.get("start"), datetime)]
+    if not values:
+        return 2
+
+    percentile = sum(1 for v in values if v < price) / len(values) * 100
+    if percentile < 20:
+        return 0
+    if percentile < 40:
+        return 1
+    if percentile < 60:
+        return 2
+    if percentile < 80:
+        return 3
+    return 4
+
+
+def _get_hour_period() -> int:
+    """Get current hour period (0-5)."""
+    from datetime import datetime
+
+    return datetime.now().hour // 4
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -176,11 +295,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
 
-    # Store coordinator and config data
+    # Initialize AI trainer
+    ai_config = AIConfig(
+        nordpool_entity=nordpool_entity,
+        battery_level_entity=entry.data.get("battery_level_entity", ""),
+        battery_capacity_entity=entry.data.get("battery_capacity_entity", ""),
+        solar_power_entity=entry.data.get("solar_power_entity", ""),
+        load_power_entity=entry.data.get("load_power_entity", ""),
+    )
+    ai_trainer = AITrainer(hass, ai_config)
+
+    # Try to load existing models
+    try:
+        await ai_trainer.load_models()
+    except Exception as err:
+        _LOGGER.debug("Could not load AI models: %s", err)
+
+    # Store coordinator, config data, and AI trainer
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
         "data": entry.data,
         "options": entry.options,
+        "ai_trainer": ai_trainer,
+        "ai_enabled": False,
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

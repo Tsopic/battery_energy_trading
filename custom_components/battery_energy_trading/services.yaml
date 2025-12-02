@@ -49,3 +49,33 @@ force_refresh:
       required: false
       selector:
         text:
+
+train_ai_models:
+  name: Train AI Models
+  description: Manually trigger AI model training from historical data
+  fields:
+    days_of_data:
+      name: Days of Data
+      description: Days of historical data to use for training (default 90)
+      default: 90
+      selector:
+        number:
+          min: 30
+          max: 365
+          step: 1
+          mode: slider
+
+get_ai_prediction:
+  name: Get AI Prediction
+  description: Get current AI recommendation for battery operation with explanation
+
+set_ai_mode:
+  name: Set AI Mode
+  description: Enable or disable AI-driven automatic decisions
+  fields:
+    enabled:
+      name: Enabled
+      description: Enable AI mode for automatic battery control
+      required: true
+      selector:
+        boolean:

@@ -140,14 +140,18 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        # Verify all 3 services are registered
-        assert mock_hass.services.async_register.call_count == 3
+        # Verify all 6 services are registered (3 original + 3 AI)
+        assert mock_hass.services.async_register.call_count == 6
 
-        # Check that sync_sungrow_parameters service was registered
+        # Check that services were registered
         registered_services = [call[0][1] for call in mock_hass.services.async_register.call_args_list]
         assert SERVICE_SYNC_SUNGROW_PARAMS in registered_services
         assert "generate_automation_scripts" in registered_services
         assert "force_refresh" in registered_services
+        # AI services
+        assert "train_ai_models" in registered_services
+        assert "get_ai_prediction" in registered_services
+        assert "set_ai_mode" in registered_services
 
     @pytest.mark.asyncio
     async def test_handle_sync_with_entry_id(self, mock_hass, mock_config_entry_sungrow):
