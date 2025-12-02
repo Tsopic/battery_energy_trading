@@ -37,6 +37,7 @@ from .const import (
     NUMBER_MIN_ARBITRAGE_PROFIT,
     NUMBER_MIN_BATTERY_LEVEL,
     NUMBER_MIN_FORCED_SELL_PRICE,
+    SENSOR_AI_STATUS,
     SENSOR_ARBITRAGE_OPPORTUNITIES,
     SENSOR_AUTOMATION_STATUS,
     SENSOR_CHARGING_HOURS,
@@ -55,10 +56,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Battery Energy Trading sensors."""
-    # Get coordinator from hass.data
+    # Get coordinator and AI trainer from hass.data
     from .const import DOMAIN
 
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    entry_data = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry_data["coordinator"]
+    ai_trainer = entry_data.get("ai_trainer")
 
     nordpool_entity = entry.data[CONF_NORDPOOL_ENTITY]
     battery_level_entity = entry.data[CONF_BATTERY_LEVEL_ENTITY]
@@ -105,6 +108,13 @@ async def async_setup_entry(
             entry,
             coordinator,
             nordpool_entity,
+        ),
+        AIStatusSensor(
+            hass,
+            entry,
+            coordinator,
+            nordpool_entity,
+            ai_trainer,
         ),
     ]
 
@@ -633,3 +643,66 @@ class AutomationStatusSensor(BatteryTradingSensor):
             "next_scheduled_action": next_scheduled,
             "automation_active": self.coordinator.data.get("automation_active", False),
         }
+
+
+class AIStatusSensor(BatteryTradingSensor):
+    """Sensor for AI system status and model information."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        coordinator: Any,
+        nordpool_entity: str,
+        ai_trainer: Any | None,
+    ) -> None:
+        """Initialize the AI status sensor."""
+        super().__init__(
+            hass=hass,
+            entry=entry,
+            coordinator=coordinator,
+            nordpool_entity=nordpool_entity,
+            sensor_type=SENSOR_AI_STATUS,
+        )
+        self._ai_trainer = ai_trainer
+        self._attr_name = "AI Status"
+        self._attr_icon = "mdi:brain"
+
+    @property
+    def native_value(self) -> str:
+        """Return the current AI status."""
+        if self._ai_trainer is None:
+            return "Not Configured"
+        if self._ai_trainer.is_training:
+            return "Training"
+        if (
+            self._ai_trainer.decision_optimizer
+            and self._ai_trainer.decision_optimizer.is_trained
+        ):
+            return "Ready"
+        return "Initializing"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return AI status attributes."""
+        attrs: dict[str, Any] = {}
+        if self._ai_trainer:
+            attrs["last_training"] = (
+                self._ai_trainer.last_training.isoformat()
+                if self._ai_trainer.last_training
+                else None
+            )
+            attrs["solar_model_trained"] = (
+                self._ai_trainer.solar_predictor is not None
+                and self._ai_trainer.solar_predictor.is_trained
+            )
+            attrs["load_model_trained"] = (
+                self._ai_trainer.load_forecaster is not None
+                and self._ai_trainer.load_forecaster.is_trained
+            )
+            attrs["decision_model_trained"] = (
+                self._ai_trainer.decision_optimizer is not None
+                and self._ai_trainer.decision_optimizer.is_trained
+            )
+            attrs["training_metrics"] = self._ai_trainer.training_metrics
+        return attrs

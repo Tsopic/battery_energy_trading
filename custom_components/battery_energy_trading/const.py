@@ -47,6 +47,7 @@ SENSOR_CURRENT_OPERATION: Final = "current_operation"
 SENSOR_DAILY_REVENUE: Final = "daily_revenue"
 SENSOR_DAILY_COST: Final = "daily_cost"
 SENSOR_AUTOMATION_STATUS: Final = "automation_status"
+SENSOR_AI_STATUS: Final = "ai_status"
 
 # Binary sensor types
 BINARY_SENSOR_FORCED_DISCHARGE: Final = "forced_discharge"

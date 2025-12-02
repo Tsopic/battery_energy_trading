@@ -42,15 +42,19 @@ async def test_async_setup_entry(mock_hass, mock_config_entry, mock_coordinator)
     # Verify sensors were added
     assert async_add_entities.called
     sensors = async_add_entities.call_args[0][0]
-    assert len(sensors) == 5
+    assert len(sensors) == 6  # Including AIStatusSensor
     assert isinstance(sensors[0], ConfigurationSensor)
     assert isinstance(sensors[1], ArbitrageOpportunitiesSensor)
     assert isinstance(sensors[2], DischargeHoursSensor)
     assert isinstance(sensors[3], ChargingHoursSensor)
 
-    # Import AutomationStatusSensor for type checking
-    from custom_components.battery_energy_trading.sensor import AutomationStatusSensor
+    # Import AutomationStatusSensor and AIStatusSensor for type checking
+    from custom_components.battery_energy_trading.sensor import (
+        AIStatusSensor,
+        AutomationStatusSensor,
+    )
     assert isinstance(sensors[4], AutomationStatusSensor)
+    assert isinstance(sensors[5], AIStatusSensor)
 
 
 class TestBatteryTradingSensor:
@@ -673,3 +677,133 @@ class TestAutomationStatusSensor:
 
         assert automation_status_sensor.native_value == "Idle"
         assert automation_status_sensor.extra_state_attributes["last_action"] is None
+
+
+class TestAIStatusSensor:
+    """Test AIStatusSensor."""
+
+    @pytest.fixture
+    def ai_status_sensor(self, mock_hass, mock_config_entry, mock_coordinator):
+        """Create an AI status sensor."""
+        from custom_components.battery_energy_trading.sensor import AIStatusSensor
+
+        return AIStatusSensor(
+            hass=mock_hass,
+            entry=mock_config_entry,
+            coordinator=mock_coordinator,
+            nordpool_entity="sensor.nordpool",
+            ai_trainer=None,  # No trainer initially
+        )
+
+    def test_init(self, ai_status_sensor):
+        """Test AI status sensor initialization."""
+        assert ai_status_sensor._attr_name == "AI Status"
+        assert ai_status_sensor._attr_icon == "mdi:brain"
+
+    def test_native_value_not_configured(self, ai_status_sensor):
+        """Test native value when AI trainer not configured."""
+        assert ai_status_sensor.native_value == "Not Configured"
+
+    def test_native_value_training(
+        self, mock_hass, mock_config_entry, mock_coordinator
+    ):
+        """Test native value during training."""
+        from unittest.mock import MagicMock
+
+        from custom_components.battery_energy_trading.sensor import AIStatusSensor
+
+        mock_trainer = MagicMock()
+        mock_trainer.is_training = True
+
+        sensor = AIStatusSensor(
+            hass=mock_hass,
+            entry=mock_config_entry,
+            coordinator=mock_coordinator,
+            nordpool_entity="sensor.nordpool",
+            ai_trainer=mock_trainer,
+        )
+
+        assert sensor.native_value == "Training"
+
+    def test_native_value_ready(self, mock_hass, mock_config_entry, mock_coordinator):
+        """Test native value when AI is ready."""
+        from unittest.mock import MagicMock
+
+        from custom_components.battery_energy_trading.sensor import AIStatusSensor
+
+        mock_trainer = MagicMock()
+        mock_trainer.is_training = False
+        mock_trainer.decision_optimizer = MagicMock()
+        mock_trainer.decision_optimizer.is_trained = True
+
+        sensor = AIStatusSensor(
+            hass=mock_hass,
+            entry=mock_config_entry,
+            coordinator=mock_coordinator,
+            nordpool_entity="sensor.nordpool",
+            ai_trainer=mock_trainer,
+        )
+
+        assert sensor.native_value == "Ready"
+
+    def test_native_value_initializing(
+        self, mock_hass, mock_config_entry, mock_coordinator
+    ):
+        """Test native value when AI is initializing."""
+        from unittest.mock import MagicMock
+
+        from custom_components.battery_energy_trading.sensor import AIStatusSensor
+
+        mock_trainer = MagicMock()
+        mock_trainer.is_training = False
+        mock_trainer.decision_optimizer = None
+
+        sensor = AIStatusSensor(
+            hass=mock_hass,
+            entry=mock_config_entry,
+            coordinator=mock_coordinator,
+            nordpool_entity="sensor.nordpool",
+            ai_trainer=mock_trainer,
+        )
+
+        assert sensor.native_value == "Initializing"
+
+    def test_extra_state_attributes_no_trainer(self, ai_status_sensor):
+        """Test attributes when no trainer configured."""
+        attrs = ai_status_sensor.extra_state_attributes
+        assert attrs == {}
+
+    def test_extra_state_attributes_with_trainer(
+        self, mock_hass, mock_config_entry, mock_coordinator
+    ):
+        """Test attributes when trainer is configured."""
+        from datetime import datetime
+        from unittest.mock import MagicMock
+
+        from custom_components.battery_energy_trading.sensor import AIStatusSensor
+
+        mock_trainer = MagicMock()
+        mock_trainer.is_training = False
+        mock_trainer.last_training = datetime(2024, 1, 1, 12, 0, 0)
+        mock_trainer.solar_predictor = MagicMock()
+        mock_trainer.solar_predictor.is_trained = True
+        mock_trainer.load_forecaster = MagicMock()
+        mock_trainer.load_forecaster.is_trained = False
+        mock_trainer.decision_optimizer = MagicMock()
+        mock_trainer.decision_optimizer.is_trained = True
+        mock_trainer.training_metrics = {"solar": {"mse": 0.01}}
+
+        sensor = AIStatusSensor(
+            hass=mock_hass,
+            entry=mock_config_entry,
+            coordinator=mock_coordinator,
+            nordpool_entity="sensor.nordpool",
+            ai_trainer=mock_trainer,
+        )
+
+        attrs = sensor.extra_state_attributes
+        assert attrs["last_training"] == "2024-01-01T12:00:00"
+        assert attrs["solar_model_trained"] is True
+        assert attrs["load_model_trained"] is False
+        assert attrs["decision_model_trained"] is True
+        assert attrs["training_metrics"] == {"solar": {"mse": 0.01}}
