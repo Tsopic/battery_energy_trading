@@ -155,7 +155,7 @@ cards:
           - entity: binary_sensor.battery_energy_trading_export_profitable
             name: "Export Profitable"
             icon: mdi:transmission-tower-export
-          - entity: binary_sensor.battery_energy_trading_solar_available
+          - entity: binary_sensor.battery_energy_trading_solar_power_available
             name: "Solar Active"
             icon: mdi:solar-power
           - entity: sensor.nordpool_kwh_se3_eur_3_10_025  # REPLACE WITH YOUR NORD POOL ENTITY
@@ -203,6 +203,38 @@ cards:
           {% endif %}
 
           **Automation Active**: {{ state_attr('sensor.battery_energy_trading_automation_status', 'automation_active') }}
+
+      # AI Status Card
+      - type: markdown
+        title: "🧠 AI Status"
+        content: |
+          **Status**: {{ states('sensor.battery_energy_trading_ai_status') }}
+
+          {% set ai_sensor = 'sensor.battery_energy_trading_ai_status' %}
+          | Model | Status |
+          |-------|--------|
+          | ☀️ Solar Predictor | {% if state_attr(ai_sensor, 'solar_model_trained') %}✅ Trained{% else %}❌ Not Trained{% endif %} |
+          | ⚡ Load Forecaster | {% if state_attr(ai_sensor, 'load_model_trained') %}✅ Trained{% else %}❌ Not Trained{% endif %} |
+          | 🎯 Decision Optimizer | {% if state_attr(ai_sensor, 'decision_model_trained') %}✅ Trained{% else %}❌ Not Trained{% endif %} |
+
+          {% if state_attr(ai_sensor, 'last_training') %}
+          **Last Training**: {{ state_attr(ai_sensor, 'last_training') }}
+          {% else %}
+          **Last Training**: Never
+          {% endif %}
+
+          {% if state_attr(ai_sensor, 'training_metrics') %}
+          **Training Metrics**: {{ state_attr(ai_sensor, 'training_metrics') | tojson }}
+          {% endif %}
+
+      - type: button
+        name: Train AI Models
+        icon: mdi:brain
+        tap_action:
+          action: call-service
+          service: battery_energy_trading.train_ai_models
+          service_data:
+            days_of_data: 90
 
   # Daily Timeline View
   - type: vertical-stack
@@ -260,7 +292,7 @@ cards:
             icon: mdi:transmission-tower
             secondary_info: attribute
             attribute: description
-          - entity: switch.battery_energy_trading_enable_multiday_optimization
+          - entity: switch.battery_energy_trading_enable_multi_day_optimization_experimental
             name: "Enable Multi-Day Optimization"
             icon: mdi:calendar-multiple
             secondary_info: attribute
@@ -415,16 +447,16 @@ cards:
       - type: entities
         title: "Configure Price Limits"
         entities:
-          - entity: number.battery_energy_trading_min_forced_sell_price
+          - entity: number.battery_energy_trading_minimum_forced_sell_price
             name: "Min Sell Price"
             icon: mdi:currency-eur
-          - entity: number.battery_energy_trading_min_export_price
+          - entity: number.battery_energy_trading_minimum_export_price
             name: "Min Export Price"
             icon: mdi:currency-eur
-          - entity: number.battery_energy_trading_max_force_charge_price
+          - entity: number.battery_energy_trading_maximum_force_charge_price
             name: "Max Buy Price"
             icon: mdi:currency-eur
-          - entity: number.battery_energy_trading_min_arbitrage_profit
+          - entity: number.battery_energy_trading_minimum_arbitrage_profit
             name: "Min Arbitrage Profit"
             icon: mdi:currency-eur
 
@@ -437,19 +469,19 @@ cards:
       - type: entities
         title: "Battery Protection & Performance"
         entities:
-          - entity: number.battery_energy_trading_min_battery_level
+          - entity: number.battery_energy_trading_minimum_battery_discharge_level
             name: "Min Battery Discharge Level"
             icon: mdi:battery-low
-          - entity: number.battery_energy_trading_battery_low_threshold
+          - entity: number.battery_energy_trading_battery_low_warning_threshold
             name: "Battery Low Warning Threshold"
             icon: mdi:battery-alert
-          - entity: number.battery_energy_trading_battery_efficiency
+          - entity: number.battery_energy_trading_battery_round_trip_efficiency
             name: "Battery Round-Trip Efficiency"
             icon: mdi:battery-sync
-          - entity: number.battery_energy_trading_discharge_rate_kw
+          - entity: number.battery_energy_trading_battery_discharge_rate
             name: "Discharge Rate"
             icon: mdi:battery-arrow-up
-          - entity: number.battery_energy_trading_charge_rate_kw
+          - entity: number.battery_energy_trading_battery_charge_rate
             name: "Charge Rate"
             icon: mdi:battery-arrow-down
 
@@ -478,7 +510,7 @@ cards:
       - type: entities
         title: "Solar Override"
         entities:
-          - entity: number.battery_energy_trading_min_solar_threshold
+          - entity: number.battery_energy_trading_minimum_solar_power_threshold
             name: "Min Solar Power"
             icon: mdi:solar-power
 
@@ -505,9 +537,9 @@ cards:
         title: "Battery Indicators"
         state_color: true
         entities:
-          - entity: binary_sensor.battery_energy_trading_battery_low
+          - entity: binary_sensor.battery_energy_trading_battery_below_15
             name: "Battery Low Warning"
             icon: mdi:battery-alert
-          - entity: binary_sensor.battery_energy_trading_low_price
+          - entity: binary_sensor.battery_energy_trading_low_price_mode
             name: "Low Price Mode"
             icon: mdi:currency-eur-off

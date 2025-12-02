@@ -136,6 +136,9 @@ The integration provides the following entities for your dashboard:
 - **Charging Time Slots** - Cheapest 15-min slots for charging (if enabled)
   - Shows energy amounts, prices, and estimated costs
 - **Arbitrage Opportunities** - Profitable charge/discharge windows with profit calculations
+- **Automation Status** - Real-time automation execution status
+  - States: `Idle`, `Active - Discharging`, `Active - Charging`, `Unknown`
+  - Attributes: `last_action`, `last_action_time`, `next_scheduled_action`
 
 ### Binary Sensors (Automation Triggers)
 - **Forced Discharge Active** - Currently selling at peak prices
@@ -185,13 +188,21 @@ If you have the Sungrow integration already installed:
 
 The integration **dynamically reads your actual battery capacity** from the Sungrow system, so it works with any Sungrow-compatible battery configuration.
 
-**Manual Sync Service:**
+**Services:**
 ```yaml
 # Manually re-sync Sungrow parameters if you upgrade your inverter
 service: battery_energy_trading.sync_sungrow_parameters
+
+# Generate ready-to-use automation scripts for your configuration
+service: battery_energy_trading.generate_automation_scripts
+
+# Force immediate recalculation of charge/discharge slots
+service: battery_energy_trading.force_refresh
 ```
 
 **[📖 Full Sungrow Integration Guide](docs/integrations/sungrow.md)** - Complete setup with automation examples
+
+**[🤖 Automatic Trading Setup Guide](docs/user-guide/automatic-trading-setup.md)** - One-click automation generation
 
 ### Example Automations
 
@@ -266,8 +277,9 @@ A **complete dashboard** is included in the `dashboards/` directory!
 
 The pre-built dashboard includes:
 
-📊 **11 Organized Sections:**
+📊 **13 Organized Sections:**
 - Current operation status
+- Automation status and management
 - Operation mode controls (switches)
 - Discharge schedule with revenue estimates
 - Charging schedule with cost estimates
@@ -278,6 +290,7 @@ The pre-built dashboard includes:
 - Solar override settings
 - Discharge configuration
 - Battery health monitoring
+- Quick-action service buttons
 
 **See [`dashboards/README.md`](dashboards/README.md) for full documentation and customization guide.**
 
@@ -315,6 +328,7 @@ entities:
 ## 📚 Documentation
 
 - **[Complete Documentation](docs/README.md)** - Full documentation index
+- **[🤖 Automatic Trading Setup](docs/user-guide/automatic-trading-setup.md)** - One-click automation generation
 - **[Sungrow Integration Guide](docs/integrations/sungrow.md)** - Sungrow inverter setup and automations
 - **[Dashboard Guide](dashboards/README.md)** - Pre-built dashboard setup
 - **[Development Guide](CLAUDE.md)** - Architecture and contributing
