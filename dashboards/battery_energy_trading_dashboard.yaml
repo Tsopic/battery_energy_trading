@@ -204,6 +204,38 @@ cards:
 
           **Automation Active**: {{ state_attr('sensor.battery_energy_trading_automation_status', 'automation_active') }}
 
+      # AI Status Card
+      - type: markdown
+        title: "🧠 AI Status"
+        content: |
+          **Status**: {{ states('sensor.battery_energy_trading_ai_status') }}
+
+          {% set ai_sensor = 'sensor.battery_energy_trading_ai_status' %}
+          | Model | Status |
+          |-------|--------|
+          | ☀️ Solar Predictor | {% if state_attr(ai_sensor, 'solar_model_trained') %}✅ Trained{% else %}❌ Not Trained{% endif %} |
+          | ⚡ Load Forecaster | {% if state_attr(ai_sensor, 'load_model_trained') %}✅ Trained{% else %}❌ Not Trained{% endif %} |
+          | 🎯 Decision Optimizer | {% if state_attr(ai_sensor, 'decision_model_trained') %}✅ Trained{% else %}❌ Not Trained{% endif %} |
+
+          {% if state_attr(ai_sensor, 'last_training') %}
+          **Last Training**: {{ state_attr(ai_sensor, 'last_training') }}
+          {% else %}
+          **Last Training**: Never
+          {% endif %}
+
+          {% if state_attr(ai_sensor, 'training_metrics') %}
+          **Training Metrics**: {{ state_attr(ai_sensor, 'training_metrics') | tojson }}
+          {% endif %}
+
+      - type: button
+        name: Train AI Models
+        icon: mdi:brain
+        tap_action:
+          action: call-service
+          service: battery_energy_trading.train_ai_models
+          service_data:
+            days_of_data: 90
+
   # Daily Timeline View
   - type: vertical-stack
     cards:
