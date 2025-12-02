@@ -28,9 +28,10 @@ The codebase follows Home Assistant's integration pattern with these core compon
 - `const.py` - Constants, defaults, and configuration keys
 - `base_entity.py` - Base entity class with shared coordinator logic
 - `energy_optimizer.py` - Core optimization algorithms for slot selection and arbitrage
+- `automation_helper.py` - Automation script generator for Sungrow control (v0.15.0)
 
 **Entity Platforms**:
-- `sensor.py` - Discharge/charging time slots, arbitrage opportunities
+- `sensor.py` - Discharge/charging time slots, arbitrage opportunities, automation status
 - `binary_sensor.py` - Status sensors (forced_discharge, cheapest_hours, export_profitable, battery_low, solar_available)
 - `number.py` - Configuration inputs (prices, hours, battery levels, rates)
 - `switch.py` - Enable/disable controls (forced charging, forced discharge, export management)
@@ -103,9 +104,15 @@ The integration uses Home Assistant's `DataUpdateCoordinator` pattern for effici
 **Coordinator Data Structure:**
 ```python
 {
-    "raw_today": list[dict],      # Today's price data from Nord Pool
+    "raw_today": list[dict],       # Today's price data from Nord Pool
     "raw_tomorrow": list[dict],    # Tomorrow's price data (after 13:00 CET)
-    "current_price": float         # Current electricity price
+    "current_price": float,        # Current electricity price
+    # Action tracking (v0.15.0)
+    "last_action": str | None,     # Last automation action (e.g., "discharge_started")
+    "last_action_time": str | None, # ISO timestamp of last action
+    "automation_active": bool,      # Whether automation is currently active
+    "next_discharge_slot": dict | None,  # Next scheduled discharge slot
+    "next_charge_slot": dict | None      # Next scheduled charge slot
 }
 ```
 
@@ -135,6 +142,17 @@ The integration uses Home Assistant's `DataUpdateCoordinator` pattern for effici
 - Automatically finds config entry with `auto_detected: true`
 - Re-runs auto-detection and updates charge/discharge rates
 - Called via: `service: battery_energy_trading.sync_sungrow_parameters`
+
+**`generate_automation_scripts`** (v0.15.0) - Generate Sungrow control automations
+- Generates ready-to-use YAML automations tailored to user's configuration
+- Fires `battery_energy_trading_automation_generated` event for UI notification
+- Optional `config_entry_id` parameter with auto-detection fallback
+- Called via: `service: battery_energy_trading.generate_automation_scripts`
+
+**`force_refresh`** (v0.15.0) - Force immediate slot recalculation
+- Forces immediate recalculation of charge/discharge slots
+- Useful after price data updates or configuration changes
+- Called via: `service: battery_energy_trading.force_refresh`
 
 ## Common Commands
 
@@ -269,6 +287,9 @@ The integration creates these entity types for user configuration:
 - `sensor.battery_energy_trading_discharge_time_slots` - Selected discharge slots with detailed attributes
 - `sensor.battery_energy_trading_charging_time_slots` - Selected charging slots with detailed attributes
 - `sensor.battery_energy_trading_arbitrage_opportunities` - Detected arbitrage opportunities with ROI analysis
+- `sensor.battery_energy_trading_automation_status` (v0.15.0) - Real-time automation execution status
+  - States: `Idle`, `Active - Discharging`, `Active - Charging`, `Unknown`
+  - Attributes: `last_action`, `last_action_time`, `next_scheduled_action`, `automation_active`
 
 ## Dashboard
 
@@ -285,14 +306,16 @@ The integration includes a comprehensive Lovelace dashboard with **automatic ent
 1. **Configuration Info Card** - Shows all configured entity IDs for verification
 2. **Nord Pool Price Chart** - ApexCharts visualization of today vs tomorrow prices (requires HACS card)
 3. **Current Status** - Real-time operation status and binary sensor states
-4. **Daily Timeline View** - Consolidated schedule showing all discharge/charge periods for the day
-5. **Operation Modes** - Enable/disable switches with inline descriptions
-6. **Discharge Schedule** - Aggregate metrics + individual slot details (time, energy, price, revenue)
-7. **Charging Schedule** - Aggregate metrics + individual slot details (time, energy, price, cost)
-8. **Arbitrage Opportunities** - Top 5 opportunities with full breakdown (charge/discharge windows, profit, ROI)
-9. **Price Thresholds** - Configure min/max prices for operations
-10. **Battery Settings** - Protection levels and charge/discharge rates
-11. **Solar Settings** - Minimum solar power threshold
+4. **Automation Status** (v0.15.0) - Shows automation execution state, last action, and timestamps
+5. **Automation Management** (v0.15.0) - Buttons for generating automations and forcing refresh
+6. **Daily Timeline View** - Consolidated schedule showing all discharge/charge periods for the day
+7. **Operation Modes** - Enable/disable switches with inline descriptions
+8. **Discharge Schedule** - Aggregate metrics + individual slot details (time, energy, price, revenue)
+9. **Charging Schedule** - Aggregate metrics + individual slot details (time, energy, price, cost)
+10. **Arbitrage Opportunities** - Top 5 opportunities with full breakdown (charge/discharge windows, profit, ROI)
+11. **Price Thresholds** - Configure min/max prices for operations
+12. **Battery Settings** - Protection levels and charge/discharge rates
+13. **Solar Settings** - Minimum solar power threshold
 
 **Dashboard Location:**
 - File: `dashboards/battery_energy_trading_dashboard.yaml`
@@ -398,6 +421,8 @@ The integration has comprehensive test coverage using pytest:
 - `tests/test_energy_optimizer.py` - Energy optimization algorithm tests
 - `tests/test_sungrow_helper.py` - Sungrow auto-detection tests
 - `tests/test_config_flow.py` - Configuration flow tests
+- `tests/test_automation_helper.py` (v0.15.0) - Automation script generator tests
+- `tests/test_integration_automation.py` (v0.15.0) - End-to-end automation workflow tests
 
 ### Running Tests
 ```bash
@@ -408,15 +433,15 @@ pytest tests/test_energy_optimizer.py::TestEnergyOptimizer::test_select_discharg
 
 ### Coverage
 
-**Current Status** (v0.14.0):
-- **Overall Coverage**: 90.51% (exceeds 90% requirement) ✅
-- **Total Tests**: 233 (all passing)
-- **Test Execution Time**: 0.85 seconds
+**Current Status** (v0.15.0):
+- **Overall Coverage**: 90.63% (exceeds 90% requirement) ✅
+- **Total Tests**: 258 (all passing)
+- **Test Execution Time**: ~2.5 seconds
 
 **Coverage by Module**:
-- 100% coverage (5 modules): `__init__.py`, `base_entity.py`, `const.py`, `number.py`, `switch.py`
-- >90% coverage (4 modules): `binary_sensor.py` (94.56%), `sungrow_helper.py` (92.59%), `sensor.py` (90.94%), `config_flow.py` (90.55%)
-- Needs improvement (2 modules): `energy_optimizer.py` (84.38%), `coordinator.py` (73.53%)
+- 100% coverage (7 modules): `__init__.py`, `automation_helper.py`, `base_entity.py`, `const.py`, `coordinator.py`, `number.py`, `switch.py`
+- >90% coverage (4 modules): `binary_sensor.py` (94.51%), `sungrow_helper.py` (92.59%), `sensor.py` (90.20%), `config_flow.py` (90.48%)
+- Needs improvement (1 module): `energy_optimizer.py` (84.38%)
 
 **Coverage Reporting**:
 ```bash
@@ -442,57 +467,57 @@ See `docs/development/testing.md` for detailed testing documentation and `COVERA
 
 The integration follows Home Assistant's quality scale tiers to ensure professional standards:
 
-### Current Status: Silver Tier ✅ (v0.14.0)
+### Current Status: Silver Tier ✅ (v0.15.0)
 
 **Silver Tier Requirements** (all met):
 - ✅ **DataUpdateCoordinator**: Implemented in `coordinator.py` with 60-second polling
 - ✅ **Type hints**: 100% coverage across all modules
 - ✅ **Code comments**: Comprehensive docstrings for all classes and methods
 - ✅ **Async codebase**: All platforms use async/await patterns
-- ✅ **Test coverage >90%**: Currently at 90.51%
+- ✅ **Test coverage >90%**: Currently at 90.63%
 - ✅ **Unique IDs**: Proper unique ID generation for all entities
 - ✅ **Device registry**: DeviceInfo properly configured
 - ✅ **Appropriate polling**: 60-second coordinator update interval
 
-### Quality Improvements in v0.14.0
+### Quality Improvements in v0.15.0
+
+**New Features**:
+- Automation script generator for Sungrow control (`automation_helper.py`)
+- Service calls for automation management (`generate_automation_scripts`, `force_refresh`)
+- Automation status monitoring sensor
+- Coordinator action tracking for real-time status
 
 **Architecture**:
-- Implemented DataUpdateCoordinator pattern (required for Silver)
-- All entities inherit from CoordinatorEntity
-- Centralized data fetching with proper error handling
-
-**Code Quality**:
-- Ruff linter and formatter (replaces black, isort, flake8)
-- Pre-commit hooks for automated quality checks
-- Mypy type checking (100% coverage)
-- Bandit security scanning (zero vulnerabilities)
+- Services registered in `async_setup` per Home Assistant best practices
+- Event firing for automation generation notifications
+- Comprehensive coordinator action tracking
 
 **Testing**:
-- 90.51% code coverage (exceeds 90% requirement)
-- 233 comprehensive tests across all platforms
-- Automated coverage reporting in CI/CD
+- 90.63% code coverage (exceeds 90% requirement)
+- 258 comprehensive tests across all platforms (+25 from v0.14.0)
+- 100% coordinator.py coverage (up from 73.53%)
+- Integration tests for end-to-end automation workflows
 
 **Developer Experience**:
 - Modern tooling configuration (ruff.toml, .pre-commit-config.yaml)
-- Clear documentation (CODE_REVIEW_REPORT.md, COVERAGE_REPORT.md)
+- Clear documentation (automatic trading setup guide)
 - Automated quality checks prevent regressions
 
 ### Path to Gold Tier
 
 **Gold Tier Requirements** (future work):
-- [ ] Config flow tests for all flows (currently 90.55% coverage)
+- [ ] Config flow tests for all flows (currently 90.48% coverage)
 - [ ] Raise issues for custom components used
-- [ ] Set up code coverage reporting (✅ implemented in v0.14.0)
-- [ ] Tests for significant code paths
+- [x] Set up code coverage reporting (✅ implemented in v0.14.0)
+- [x] Implement integration tests for full workflows (✅ implemented in v0.15.0)
 - [ ] Consider using common helpers from HA core
 
 **Recommended Next Steps**:
-1. Improve coordinator.py coverage to 90%+ (currently 73.53%)
-2. Add edge case tests for energy_optimizer.py (currently 84.38%)
-3. Implement integration tests for full workflows
-4. Add property-based testing for optimization algorithms
+1. Add edge case tests for energy_optimizer.py (currently 84.38%)
+2. Add property-based testing for optimization algorithms
+3. Improve config_flow.py coverage to 95%+
 
-See `CODE_REVIEW_REPORT.md` for detailed quality analysis and `IMPLEMENTATION_SUMMARY.md` for v0.14.0 improvements.
+See `CODE_REVIEW_REPORT.md` for detailed quality analysis and `docs/user-guide/automatic-trading-setup.md` for v0.15.0 automation setup guide.
 
 ## Common Troubleshooting
 
@@ -500,6 +525,8 @@ See `CODE_REVIEW_REPORT.md` for detailed quality analysis and `IMPLEMENTATION_SU
 - **Battery level not updating**: Verify battery level entity ID is correct and updating
 - **Solar override not working**: Check solar power entity reports watts (not kW) and threshold is set appropriately
 - **Discharge not triggering**: Verify prices exceed `min_forced_sell_price` threshold and forced discharge switch is ON
+- **Automation not working** (v0.15.0): Check automation status sensor for last action, verify automations were generated and enabled
+- **Service call fails**: Ensure config entry is loaded, check Home Assistant logs for error details
 
 ## Documentation Workflow
 
