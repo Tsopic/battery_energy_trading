@@ -10,6 +10,7 @@ import numpy as np
 
 from .base import BaseModel
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -180,7 +181,7 @@ class DecisionOptimizer(BaseModel):
 
         return reward
 
-    def train(self, X: np.ndarray, y: np.ndarray) -> dict[str, float]:
+    def train(self, X: np.ndarray, y: np.ndarray) -> dict[str, float]:  # noqa: ARG002
         """Train from historical data.
 
         For Q-learning, training is done through experience replay.

@@ -5,10 +5,12 @@ import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 from .config import AIConfig
+
 
 _LOGGER = logging.getLogger(__name__)
 

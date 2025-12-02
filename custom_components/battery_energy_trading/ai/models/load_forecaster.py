@@ -12,6 +12,7 @@ from sklearn.linear_model import Ridge
 
 from .base import BaseModel
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -128,7 +129,7 @@ class LoadForecaster(BaseModel):
 
         # Ensemble prediction (average of all models)
         predictions = []
-        for name, model in self._models:
+        for _name, model in self._models:
             pred = model.predict(X)
             predictions.append(pred)
 

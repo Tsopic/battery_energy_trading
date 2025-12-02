@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -276,14 +277,13 @@ class FeatureEngineering:
         """Discretize battery SOC into 5 levels."""
         if soc < 20:
             return 0
-        elif soc < 40:
+        if soc < 40:
             return 1
-        elif soc < 60:
+        if soc < 60:
             return 2
-        elif soc < 80:
+        if soc < 80:
             return 3
-        else:
-            return 4
+        return 4
 
     def _discretize_price(self, price: float, prices_24h: list[float]) -> int:
         """Discretize price into 5 levels based on distribution."""
@@ -293,14 +293,13 @@ class FeatureEngineering:
         percentile = self._price_percentile(price, prices_24h)
         if percentile < 20:
             return 0  # Very low
-        elif percentile < 40:
+        if percentile < 40:
             return 1  # Low
-        elif percentile < 60:
+        if percentile < 60:
             return 2  # Medium
-        elif percentile < 80:
+        if percentile < 80:
             return 3  # High
-        else:
-            return 4  # Very high
+        return 4  # Very high
 
     def _price_percentile(self, price: float, prices: list[float]) -> float:
         """Calculate percentile of price in distribution."""

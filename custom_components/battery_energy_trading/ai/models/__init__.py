@@ -6,6 +6,7 @@ from .decision_optimizer import Action, DecisionOptimizer
 from .load_forecaster import LoadForecaster
 from .solar_predictor import SolarPredictor
 
+
 __all__ = [
     "Action",
     "BaseModel",

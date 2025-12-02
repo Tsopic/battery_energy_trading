@@ -11,6 +11,7 @@ from sklearn.model_selection import cross_val_score
 
 from .base import BaseModel
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -185,7 +186,7 @@ class SolarPredictor(BaseModel):
 
         importances = self._model.feature_importances_
         if self._feature_names:
-            return dict(zip(self._feature_names, importances))
+            return dict(zip(self._feature_names, importances, strict=False))
         return {f"feature_{i}": imp for i, imp in enumerate(importances)}
 
     def set_feature_names(self, names: list[str]) -> None:

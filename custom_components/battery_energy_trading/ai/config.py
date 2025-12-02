@@ -41,7 +41,7 @@ class AIConfig:
     q_exploration_rate: float = 0.1
 
     @classmethod
-    def from_config_entry(cls, entry_data: dict[str, Any]) -> "AIConfig":
+    def from_config_entry(cls, entry_data: dict[str, Any]) -> AIConfig:
         """Create config from Home Assistant config entry."""
         return cls(
             solar_power_entity=entry_data.get(
