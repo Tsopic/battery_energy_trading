@@ -1,4 +1,5 @@
 """Feature engineering for AI models."""
+
 from __future__ import annotations
 
 import logging
@@ -191,9 +192,7 @@ class FeatureEngineering:
         # Historical load patterns
         if load_history:
             features.update(create_lag_features(load_history, self.lags, current_idx))
-            features.update(
-                create_rolling_features(load_history, self.windows, current_idx)
-            )
+            features.update(create_rolling_features(load_history, self.windows, current_idx))
 
         # Heat pump stage indicators
         for stage, history in heat_pump_history.items():
@@ -247,15 +246,11 @@ class FeatureEngineering:
             features["price_std_24h"] = float(np.std(prices_24h))
             features["price_min_24h"] = float(np.min(prices_24h))
             features["price_max_24h"] = float(np.max(prices_24h))
-            features["price_percentile"] = self._price_percentile(
-                current_price, prices_24h
-            )
+            features["price_percentile"] = self._price_percentile(current_price, prices_24h)
 
             # Price trend (next 6 hours vs current)
             if len(prices_24h) >= 6:
-                features["price_trend_6h"] = float(
-                    np.mean(prices_24h[:6]) - current_price
-                )
+                features["price_trend_6h"] = float(np.mean(prices_24h[:6]) - current_price)
             else:
                 features["price_trend_6h"] = 0.0
         else:

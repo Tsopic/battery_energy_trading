@@ -89,6 +89,38 @@ async def test_async_setup_entry_initializes_domain_data(
 
 
 @pytest.mark.asyncio
+@patch("custom_components.battery_energy_trading.AITrainer")
+@patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+async def test_async_setup_entry_initializes_ai_trainer(
+    mock_coordinator_class, mock_ai_trainer_class, mock_hass_with_nordpool, mock_config_entry
+):
+    """Test async_setup_entry initializes AI trainer."""
+    # Mock coordinator instance
+    mock_coordinator = MagicMock()
+    mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+    mock_coordinator_class.return_value = mock_coordinator
+
+    # Mock AI trainer instance
+    mock_ai_trainer = MagicMock()
+    mock_ai_trainer.load_models = AsyncMock()
+    mock_ai_trainer_class.return_value = mock_ai_trainer
+
+    mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
+
+    result = await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
+
+    assert result is True
+    # Verify AI trainer is in entry data
+    entry_data = mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]
+    assert "ai_trainer" in entry_data
+    assert entry_data["ai_trainer"] == mock_ai_trainer
+    assert "ai_enabled" in entry_data
+    assert entry_data["ai_enabled"] is False
+    # Verify load_models was called
+    mock_ai_trainer.load_models.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_async_unload_entry(mock_hass, mock_config_entry):
     """Test async_unload_entry unloads platforms."""
     # Setup initial data

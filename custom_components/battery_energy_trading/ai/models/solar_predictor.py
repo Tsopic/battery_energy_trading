@@ -1,4 +1,5 @@
 """Solar prediction model - correction layer for Forecast.Solar."""
+
 from __future__ import annotations
 
 import logging
@@ -62,9 +63,7 @@ class SolarPredictor(BaseModel):
         )
 
         # Cross-validation for metrics
-        cv_scores = cross_val_score(
-            self._model, X, y, cv=5, scoring="neg_mean_squared_error"
-        )
+        cv_scores = cross_val_score(self._model, X, y, cv=5, scoring="neg_mean_squared_error")
 
         # Fit on full data
         self._model.fit(X, y)
@@ -101,9 +100,7 @@ class SolarPredictor(BaseModel):
         # Clip to reasonable range (0.5 to 1.5 correction)
         return np.clip(predictions, 0.5, 1.5)
 
-    def correct_forecast(
-        self, forecast_value: float, features: np.ndarray
-    ) -> tuple[float, float]:
+    def correct_forecast(self, forecast_value: float, features: np.ndarray) -> tuple[float, float]:
         """Apply correction to Forecast.Solar prediction.
 
         Args:

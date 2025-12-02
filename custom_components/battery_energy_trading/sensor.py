@@ -675,10 +675,7 @@ class AIStatusSensor(BatteryTradingSensor):
             return "Not Configured"
         if self._ai_trainer.is_training:
             return "Training"
-        if (
-            self._ai_trainer.decision_optimizer
-            and self._ai_trainer.decision_optimizer.is_trained
-        ):
+        if self._ai_trainer.decision_optimizer and self._ai_trainer.decision_optimizer.is_trained:
             return "Ready"
         return "Initializing"
 

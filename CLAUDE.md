@@ -116,6 +116,36 @@ The integration uses Home Assistant's `DataUpdateCoordinator` pattern for effici
 }
 ```
 
+### AI Module (`ai/`)
+
+The AI subsystem provides smart battery management using machine learning:
+
+**Components:**
+- `config.py` - AIConfig dataclass for entity mappings
+- `data_extractor.py` - Extract training data from HA Long-Term Statistics
+- `feature_engineering.py` - Create time, lag, and rolling features
+- `models/` - ML model implementations:
+  - `base.py` - Abstract BaseModel interface
+  - `solar_predictor.py` - GradientBoosting correction for Forecast.Solar
+  - `load_forecaster.py` - Ensemble model for load prediction
+  - `decision_optimizer.py` - Q-learning with epsilon-greedy policy
+- `training/trainer.py` - Sequential training orchestrator (Pi 4 compatible)
+
+**Services:**
+- `train_ai_models` - Trigger model training from historical data (30-365 days)
+- `get_ai_prediction` - Get current AI recommendation (CHARGE/DISCHARGE/HOLD)
+- `set_ai_mode` - Enable/disable AI-driven decisions
+
+**Memory Management:**
+Sequential training with `gc.collect()` between models to stay under 500MB peak memory on Raspberry Pi 4.
+
+**State Discretization:**
+- Battery level: 5 levels (0-4, 20% each)
+- Price level: 5 levels (0-4, based on percentile)
+- Solar level: 4 levels (0-3)
+- Load level: 3 levels (0-2)
+- Hour period: 6 periods (4 hours each)
+
 ### Data Flow
 
 1. **Config flow** - Validation and setup:
@@ -290,6 +320,9 @@ The integration creates these entity types for user configuration:
 - `sensor.battery_energy_trading_automation_status` (v0.15.0) - Real-time automation execution status
   - States: `Idle`, `Active - Discharging`, `Active - Charging`, `Unknown`
   - Attributes: `last_action`, `last_action_time`, `next_scheduled_action`, `automation_active`
+- `sensor.battery_energy_trading_ai_status` (v0.16.0) - AI system status and model information
+  - States: `Not Configured`, `Training`, `Ready`, `Initializing`
+  - Attributes: `last_training`, `solar_model_trained`, `load_model_trained`, `decision_model_trained`, `training_metrics`
 
 ## Dashboard
 
@@ -308,14 +341,15 @@ The integration includes a comprehensive Lovelace dashboard with **automatic ent
 3. **Current Status** - Real-time operation status and binary sensor states
 4. **Automation Status** (v0.15.0) - Shows automation execution state, last action, and timestamps
 5. **Automation Management** (v0.15.0) - Buttons for generating automations and forcing refresh
-6. **Daily Timeline View** - Consolidated schedule showing all discharge/charge periods for the day
-7. **Operation Modes** - Enable/disable switches with inline descriptions
-8. **Discharge Schedule** - Aggregate metrics + individual slot details (time, energy, price, revenue)
-9. **Charging Schedule** - Aggregate metrics + individual slot details (time, energy, price, cost)
-10. **Arbitrage Opportunities** - Top 5 opportunities with full breakdown (charge/discharge windows, profit, ROI)
-11. **Price Thresholds** - Configure min/max prices for operations
-12. **Battery Settings** - Protection levels and charge/discharge rates
-13. **Solar Settings** - Minimum solar power threshold
+6. **AI Status** (v0.16.0) - Shows AI training status, model readiness, and training button
+7. **Daily Timeline View** - Consolidated schedule showing all discharge/charge periods for the day
+8. **Operation Modes** - Enable/disable switches with inline descriptions
+9. **Discharge Schedule** - Aggregate metrics + individual slot details (time, energy, price, revenue)
+10. **Charging Schedule** - Aggregate metrics + individual slot details (time, energy, price, cost)
+11. **Arbitrage Opportunities** - Top 5 opportunities with full breakdown (charge/discharge windows, profit, ROI)
+12. **Price Thresholds** - Configure min/max prices for operations
+13. **Battery Settings** - Protection levels and charge/discharge rates
+14. **Solar Settings** - Minimum solar power threshold
 
 **Dashboard Location:**
 - File: `dashboards/battery_energy_trading_dashboard.yaml`

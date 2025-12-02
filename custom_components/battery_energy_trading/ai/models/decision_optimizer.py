@@ -1,4 +1,5 @@
 """Q-learning decision optimizer for battery control."""
+
 from __future__ import annotations
 
 import logging

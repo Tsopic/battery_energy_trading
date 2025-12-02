@@ -1,4 +1,5 @@
 """Extract training data from Home Assistant Long-Term Statistics."""
+
 from __future__ import annotations
 
 import logging
@@ -122,9 +123,7 @@ class DataExtractor:
             types={"mean", "sum"},
         )
 
-    async def extract_recent_data(
-        self, hours: int = 24
-    ) -> dict[str, list[dict[str, Any]]]:
+    async def extract_recent_data(self, hours: int = 24) -> dict[str, list[dict[str, Any]]]:
         """Extract recent data for inference.
 
         Args:

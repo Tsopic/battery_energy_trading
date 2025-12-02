@@ -1,4 +1,5 @@
 """Load forecasting model with heat pump awareness."""
+
 from __future__ import annotations
 
 import logging
@@ -166,9 +167,7 @@ class LoadForecaster(BaseModel):
             Tuple of (total_load, heat_pump_load)
         """
         base_load = self.predict(X)
-        hp_load = np.array(
-            [self.predict_heat_pump_stage(t) * 1000 for t in temperatures]
-        )
+        hp_load = np.array([self.predict_heat_pump_stage(t) * 1000 for t in temperatures])
 
         return base_load, hp_load
 
