@@ -84,3 +84,6 @@ HACS_SETUP.md
 # Claude Code
 .claude/
 logs/
+
+# Git worktrees
+.worktrees/

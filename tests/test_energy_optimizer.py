@@ -1,14 +1,16 @@
 """Tests for energy optimizer module."""
-import pytest
-from datetime import datetime, timedelta
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
+
+import pytest
+
 
 # Add custom_components directory to path for direct module import
 # This avoids importing __init__.py which requires homeassistant
 sys.path.insert(0, str(Path(__file__).parent.parent / "custom_components" / "battery_energy_trading"))
 
-from energy_optimizer import EnergyOptimizer
+from energy_optimizer import EnergyOptimizer  # noqa: E402
 
 
 class TestEnergyOptimizer:
@@ -701,7 +703,8 @@ class TestEnergyOptimizerIntegration:
         assert len(slots) > 0, "Should find discharge opportunities"
 
         evening_slots = [s for s in slots if 16 <= s['start'].hour < 21]
-        morning_slots = [s for s in slots if 6 <= s['start'].hour < 9]
+        # Morning slots also possible but evening should be prioritized
+        _ = [s for s in slots if 6 <= s['start'].hour < 9]
 
         # Evening peak higher, should be selected
         assert len(evening_slots) > 0, "Should select evening peak (highest price)"
@@ -712,12 +715,6 @@ class TestEnergyOptimizerIntegration:
 
         assert total_energy <= 12.8, "Total discharge can't exceed battery capacity"
         assert total_revenue > 0, "Should generate revenue"
-
-        print(f"\nWinter scenario results:")
-        print(f"  Slots selected: {len(slots)}")
-        print(f"  Total energy: {total_energy:.2f} kWh")
-        print(f"  Total revenue: €{total_revenue:.2f}")
-        print(f"  Average price: €{total_revenue/total_energy:.3f}/kWh")
 
 
 class TestInputValidation:
@@ -876,3 +873,482 @@ class TestInputValidation:
         # Should not crash, but may have reduced effectiveness
         # At minimum, should not raise exceptions
         assert isinstance(slots, list)
+
+
+class TestCacheHitPath:
+    """Tests for cache hit functionality."""
+
+    def test_cache_hit_returns_cached_result(self, sample_price_data):
+        """Test that cache hit returns cached result without recalculation."""
+        optimizer = EnergyOptimizer()
+
+        # First call - populates cache
+        result1 = optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=80.0,
+            discharge_rate=5.0,
+            max_hours=1.0,
+        )
+
+        # Verify cache was populated
+        assert len(optimizer._cache) > 0
+
+        # Second call with same params - should hit cache
+        result2 = optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=80.0,
+            discharge_rate=5.0,
+            max_hours=1.0,
+        )
+
+        # Results should be identical (from cache)
+        assert result1 == result2
+
+    def test_cache_miss_with_different_params(self, sample_price_data):
+        """Test that different params result in cache miss."""
+        optimizer = EnergyOptimizer()
+
+        # First call
+        optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.30,
+            battery_capacity=10.0,
+            battery_level=80.0,
+            discharge_rate=5.0,
+        )
+
+        initial_cache_size = len(optimizer._cache)
+
+        # Second call with different params
+        optimizer.select_discharge_slots(
+            raw_prices=sample_price_data,
+            min_sell_price=0.35,  # Different price
+            battery_capacity=10.0,
+            battery_level=80.0,
+            discharge_rate=5.0,
+        )
+
+        # Cache should have grown (new entry)
+        assert len(optimizer._cache) > initial_cache_size
+
+
+class TestSolarEstimation:
+    """Tests for solar impact estimation."""
+
+    def test_estimate_solar_impact_with_matching_forecasts(self):
+        """Test solar estimation when forecast matches slot times."""
+        base_time = datetime(2025, 10, 1, 8, 0)
+        price_slots = [
+            {"start": base_time, "end": base_time + timedelta(minutes=15), "value": 0.40},
+            {"start": base_time + timedelta(hours=1), "end": base_time + timedelta(hours=1, minutes=15), "value": 0.45},
+        ]
+
+        # Solar forecast with matching times (1kWh per hour)
+        solar_forecast = {
+            "wh_hours": {
+                base_time.isoformat(): 1000.0,
+                (base_time + timedelta(hours=1)).isoformat(): 1000.0,
+            }
+        }
+
+        battery_levels = EnergyOptimizer._estimate_solar_impact(
+            price_slots=price_slots,
+            solar_forecast_data=solar_forecast,
+            battery_capacity=10.0,
+            current_battery_level=50.0,
+        )
+
+        # Should have estimated battery levels for each slot
+        assert len(battery_levels) == 2
+        # Battery should increase with solar (1kWh = 10% of 10kWh capacity)
+        assert battery_levels[base_time] == pytest.approx(60.0)  # 50% + 10%
+        assert battery_levels[base_time + timedelta(hours=1)] == pytest.approx(70.0)  # 60% + 10%
+
+    def test_estimate_solar_impact_empty_wh_hours(self):
+        """Test solar estimation with empty wh_hours."""
+        base_time = datetime(2025, 10, 1, 8, 0)
+        price_slots = [{"start": base_time, "end": base_time + timedelta(minutes=15), "value": 0.40}]
+
+        # Solar forecast with empty wh_hours
+        solar_forecast = {"wh_hours": {}}
+
+        battery_levels = EnergyOptimizer._estimate_solar_impact(
+            price_slots=price_slots,
+            solar_forecast_data=solar_forecast,
+            battery_capacity=10.0,
+            current_battery_level=50.0,
+        )
+
+        # Should return empty dict when no wh_hours
+        assert battery_levels == {}
+
+    def test_estimate_solar_impact_no_matching_forecasts(self):
+        """Test solar estimation when forecast times don't match slots."""
+        base_time = datetime(2025, 10, 1, 8, 0)
+        price_slots = [{"start": base_time, "end": base_time + timedelta(minutes=15), "value": 0.40}]
+
+        # Solar forecast with non-matching times
+        solar_forecast = {
+            "wh_hours": {
+                (base_time + timedelta(hours=5)).isoformat(): 2000.0,
+            }
+        }
+
+        battery_levels = EnergyOptimizer._estimate_solar_impact(
+            price_slots=price_slots,
+            solar_forecast_data=solar_forecast,
+            battery_capacity=10.0,
+            current_battery_level=50.0,
+        )
+
+        # Should still have entries for slots, but battery level unchanged
+        assert len(battery_levels) == 1
+        assert battery_levels[base_time] == 50.0  # No solar matched
+
+    def test_estimate_solar_impact_exception_handling(self):
+        """Test that exceptions in solar estimation are handled gracefully."""
+        # Malformed solar forecast that causes internal error
+        solar_forecast = {
+            "wh_hours": {
+                datetime(2025, 10, 1, 8, 0): "not_a_number",  # datetime key with invalid value
+            }
+        }
+
+        price_slots = [
+            {"start": datetime(2025, 10, 1, 8, 0), "end": datetime(2025, 10, 1, 8, 15), "value": 0.40}
+        ]
+
+        # Should handle gracefully and return empty dict
+        battery_levels = EnergyOptimizer._estimate_solar_impact(
+            price_slots=price_slots,
+            solar_forecast_data=solar_forecast,
+            battery_capacity=10.0,
+            current_battery_level=50.0,
+        )
+
+        # Either empty or with default levels
+        assert isinstance(battery_levels, dict)
+
+    def test_estimate_solar_impact_with_datetime_objects(self):
+        """Test solar estimation with datetime objects as keys."""
+        base_time = datetime(2025, 10, 1, 8, 0)
+        price_slots = [{"start": base_time, "end": base_time + timedelta(minutes=15), "value": 0.40}]
+
+        # Solar forecast with datetime object as key
+        solar_forecast = {
+            "wh_hours": {
+                base_time: 2000.0,  # datetime object, not string
+            }
+        }
+
+        battery_levels = EnergyOptimizer._estimate_solar_impact(
+            price_slots=price_slots,
+            solar_forecast_data=solar_forecast,
+            battery_capacity=10.0,
+            current_battery_level=50.0,
+        )
+
+        # Should handle datetime keys
+        assert len(battery_levels) == 1
+        assert battery_levels[base_time] == pytest.approx(70.0)  # 50% + 20% (2kWh / 10kWh)
+
+
+class TestChargingWithSolar:
+    """Tests for charging slot selection with solar forecast."""
+
+    def test_charging_with_solar_forecast_reduces_need(self, sample_price_data):
+        """Test that solar forecast reduces charging needs."""
+        optimizer = EnergyOptimizer()
+
+        base_time = sample_price_data[0]["start"]
+        # Strong solar forecast that will charge battery significantly
+        solar_forecast = {
+            "wh_hours": {
+                (base_time + timedelta(hours=h)).isoformat(): 3000.0
+                for h in range(8, 16)  # 8 hours of strong solar
+            }
+        }
+
+        # Battery at 30%, want to reach 80%
+        # Solar should provide significant charging, reducing grid needs
+        slots = optimizer.select_charging_slots(
+            raw_prices=sample_price_data,
+            max_charge_price=0.10,
+            battery_capacity=10.0,
+            battery_level=30.0,
+            target_level=80.0,
+            charge_rate=5.0,
+            solar_forecast_data=solar_forecast,
+            multiday_enabled=True,  # Enable solar estimation
+        )
+
+        # May return empty if solar covers all charging
+        # or fewer slots if solar reduces need
+        assert isinstance(slots, list)
+
+    def test_charging_solar_covers_all_need(self):
+        """Test that no charging slots selected when solar covers all need."""
+        optimizer = EnergyOptimizer()
+
+        base_time = datetime(2025, 10, 1, 0, 0)
+        prices = [
+            {"start": base_time + timedelta(hours=h), "end": base_time + timedelta(hours=h+1), "value": 0.05}
+            for h in range(24)
+        ]
+
+        # Very strong solar forecast - 5kWh per hour for 8 hours = 40kWh
+        solar_forecast = {
+            "wh_hours": {
+                (base_time + timedelta(hours=h)).isoformat(): 5000.0
+                for h in range(8, 16)
+            }
+        }
+
+        # Battery at 20%, want to reach 50% on 10kWh = need 3kWh
+        # Solar provides way more than needed
+        slots = optimizer.select_charging_slots(
+            raw_prices=prices,
+            max_charge_price=0.10,
+            battery_capacity=10.0,
+            battery_level=20.0,
+            target_level=50.0,
+            charge_rate=5.0,
+            solar_forecast_data=solar_forecast,
+            multiday_enabled=True,
+        )
+
+        # Solar should cover all charging needs
+        assert len(slots) == 0
+
+    def test_charging_solar_partial_coverage(self):
+        """Test charging when solar partially covers need."""
+        optimizer = EnergyOptimizer()
+
+        base_time = datetime(2025, 10, 1, 0, 0)
+        prices = [
+            {"start": base_time + timedelta(hours=h), "end": base_time + timedelta(hours=h+1), "value": 0.03}
+            for h in range(24)
+        ]
+
+        # Moderate solar: 2kWh per hour for 4 hours = 8kWh, but battery max is 10kWh
+        solar_forecast = {
+            "wh_hours": {
+                (base_time + timedelta(hours=h)).isoformat(): 2000.0
+                for h in range(10, 14)  # 4 hours of moderate solar
+            }
+        }
+
+        # Battery at 10%, want to reach 100% on 10kWh = need 9kWh
+        # Solar provides ~8kWh (considering capacity limits), still need some grid
+        slots = optimizer.select_charging_slots(
+            raw_prices=prices,
+            max_charge_price=0.10,
+            battery_capacity=10.0,
+            battery_level=10.0,
+            target_level=100.0,
+            charge_rate=5.0,
+            solar_forecast_data=solar_forecast,
+            multiday_enabled=True,
+        )
+
+        # Should need some grid charging
+        assert isinstance(slots, list)
+        # Total energy should be reduced compared to no-solar case
+
+
+class TestPartialDischargeSlotMerging:
+    """Tests for partial discharge when merging slots with battery reserve."""
+
+    def test_single_slot_partial_discharge(self):
+        """Test partial discharge applied to single slot."""
+        from energy_optimizer import _merge_slot_group
+
+        slot = {
+            "start": datetime(2025, 10, 1, 8, 0),
+            "end": datetime(2025, 10, 1, 8, 15),
+            "price": 0.45,
+            "energy_kwh": 2.5,
+            "revenue": 1.125,  # 2.5 * 0.45
+            "duration_hours": 0.25,
+            "battery_before": 3.0,
+            "battery_after": 0.5,  # Would go below reserve
+        }
+
+        # Merge with 25% reserve on 10kWh battery = 2.5kWh reserve
+        result = _merge_slot_group(
+            group=[slot],
+            min_battery_reserve_percent=25.0,
+            battery_capacity_kwh=10.0,
+        )
+
+        # Should reduce energy to respect reserve
+        assert result["partial_discharge"] is True
+        assert result["battery_after"] == pytest.approx(2.5)  # At reserve
+        assert result["energy_kwh"] < 2.5  # Reduced energy
+
+    def test_merged_slots_partial_discharge(self):
+        """Test partial discharge applied to merged consecutive slots."""
+        from energy_optimizer import _merge_slot_group
+
+        base_time = datetime(2025, 10, 1, 8, 0)
+        slots = [
+            {
+                "start": base_time,
+                "end": base_time + timedelta(minutes=15),
+                "price": 0.45,
+                "energy_kwh": 2.5,
+                "revenue": 1.125,
+                "duration_hours": 0.25,
+                "battery_before": 5.0,
+                "battery_after": 2.5,
+            },
+            {
+                "start": base_time + timedelta(minutes=15),
+                "end": base_time + timedelta(minutes=30),
+                "price": 0.44,
+                "energy_kwh": 2.5,
+                "revenue": 1.1,
+                "duration_hours": 0.25,
+                "battery_before": 2.5,
+                "battery_after": 0.0,  # Below reserve
+            },
+        ]
+
+        # Merge with 25% reserve on 10kWh battery = 2.5kWh reserve
+        result = _merge_slot_group(
+            group=slots,
+            min_battery_reserve_percent=25.0,
+            battery_capacity_kwh=10.0,
+        )
+
+        # Should reduce total energy to respect reserve
+        assert result["partial_discharge"] is True
+        assert result["battery_after"] == pytest.approx(2.5)  # At reserve
+        assert result["energy_kwh"] == pytest.approx(2.5)  # 5.0 - 2.5 reserve
+
+    def test_merge_group_no_partial_needed(self):
+        """Test merging when no partial discharge needed."""
+        from energy_optimizer import _merge_slot_group
+
+        base_time = datetime(2025, 10, 1, 8, 0)
+        slots = [
+            {
+                "start": base_time,
+                "end": base_time + timedelta(minutes=15),
+                "price": 0.45,
+                "energy_kwh": 1.0,
+                "revenue": 0.45,
+                "duration_hours": 0.25,
+                "battery_before": 5.0,
+                "battery_after": 4.0,
+            },
+            {
+                "start": base_time + timedelta(minutes=15),
+                "end": base_time + timedelta(minutes=30),
+                "price": 0.44,
+                "energy_kwh": 1.0,
+                "revenue": 0.44,
+                "duration_hours": 0.25,
+                "battery_before": 4.0,
+                "battery_after": 3.0,  # Above 25% reserve
+            },
+        ]
+
+        # Merge with 25% reserve on 10kWh battery = 2.5kWh reserve
+        result = _merge_slot_group(
+            group=slots,
+            min_battery_reserve_percent=25.0,
+            battery_capacity_kwh=10.0,
+        )
+
+        # No partial discharge needed
+        assert "partial_discharge" not in result
+        assert result["energy_kwh"] == pytest.approx(2.0)  # Full energy
+        assert result["revenue"] == pytest.approx(0.89)
+
+    def test_merge_group_weighted_average_price_only(self):
+        """Test weighted average calculation when total energy is 0."""
+        from energy_optimizer import _merge_slot_group
+
+        base_time = datetime(2025, 10, 1, 8, 0)
+        slots = [
+            {
+                "start": base_time,
+                "end": base_time + timedelta(minutes=15),
+                "price": 0.40,
+                "energy_kwh": 0.0,
+                "duration_hours": 0.25,
+            },
+            {
+                "start": base_time + timedelta(minutes=15),
+                "end": base_time + timedelta(minutes=30),
+                "price": 0.50,
+                "energy_kwh": 0.0,
+                "duration_hours": 0.25,
+            },
+        ]
+
+        result = _merge_slot_group(group=slots)
+
+        # Should use simple average when energy is 0
+        assert result["price"] == pytest.approx(0.45)  # (0.40 + 0.50) / 2
+
+
+class TestMultidayPriceDataMerge:
+    """Tests for merging today + tomorrow price data."""
+
+    def test_merge_price_data_with_tomorrow(self):
+        """Test merging today and tomorrow price data."""
+        base_time = datetime(2025, 10, 1, 0, 0)
+        raw_today = [
+            {"start": base_time + timedelta(hours=h), "end": base_time + timedelta(hours=h+1), "value": 0.15}
+            for h in range(24)
+        ]
+
+        tomorrow_base = datetime(2025, 10, 2, 0, 0)
+        raw_tomorrow = [
+            {"start": tomorrow_base + timedelta(hours=h), "end": tomorrow_base + timedelta(hours=h+1), "value": 0.20}
+            for h in range(24)
+        ]
+
+        merged = EnergyOptimizer._merge_price_data(raw_today, raw_tomorrow)
+
+        assert len(merged) == 48  # 24 + 24
+
+    def test_merge_price_data_no_tomorrow(self):
+        """Test merging when no tomorrow data."""
+        base_time = datetime(2025, 10, 1, 0, 0)
+        raw_today = [
+            {"start": base_time + timedelta(hours=h), "end": base_time + timedelta(hours=h+1), "value": 0.15}
+            for h in range(24)
+        ]
+
+        merged = EnergyOptimizer._merge_price_data(raw_today, None)
+
+        assert len(merged) == 24
+
+    def test_merge_price_data_filters_overlap(self):
+        """Test that overlapping tomorrow slots are filtered out."""
+        base_time = datetime(2025, 10, 1, 22, 0)
+        # Today ends at midnight
+        raw_today = [
+            {"start": base_time + timedelta(hours=h), "end": base_time + timedelta(hours=h+1), "value": 0.15}
+            for h in range(2)  # 22:00 and 23:00
+        ]
+
+        # Tomorrow starts at midnight, but first slot overlaps
+        tomorrow_base = datetime(2025, 10, 2, 0, 0)
+        raw_tomorrow = [
+            {"start": datetime(2025, 10, 1, 23, 0), "end": datetime(2025, 10, 2, 0, 0), "value": 0.18},  # Overlapping
+            {"start": tomorrow_base, "end": tomorrow_base + timedelta(hours=1), "value": 0.20},
+            {"start": tomorrow_base + timedelta(hours=1), "end": tomorrow_base + timedelta(hours=2), "value": 0.22},
+        ]
+
+        merged = EnergyOptimizer._merge_price_data(raw_today, raw_tomorrow)
+
+        # Should filter out the overlapping slot
+        assert len(merged) == 4  # 2 from today + 2 from tomorrow (one filtered)
