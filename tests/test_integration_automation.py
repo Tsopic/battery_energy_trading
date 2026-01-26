@@ -354,8 +354,8 @@ async def test_sensor_registration_includes_automation_status(
         assert async_add_entities.called
         sensors = async_add_entities.call_args[0][0]
 
-        # Should have 5 sensors now (including automation_status)
-        assert len(sensors) == 5
+        # Should have 6 sensors now (including automation_status and ai_status)
+        assert len(sensors) == 6
 
         # Find automation status sensor
         from custom_components.battery_energy_trading.sensor import AutomationStatusSensor
