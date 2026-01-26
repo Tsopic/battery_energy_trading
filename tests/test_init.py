@@ -89,6 +89,38 @@ async def test_async_setup_entry_initializes_domain_data(
 
 
 @pytest.mark.asyncio
+@patch("custom_components.battery_energy_trading.AITrainer")
+@patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
+async def test_async_setup_entry_initializes_ai_trainer(
+    mock_coordinator_class, mock_ai_trainer_class, mock_hass_with_nordpool, mock_config_entry
+):
+    """Test async_setup_entry initializes AI trainer."""
+    # Mock coordinator instance
+    mock_coordinator = MagicMock()
+    mock_coordinator.async_config_entry_first_refresh = AsyncMock()
+    mock_coordinator_class.return_value = mock_coordinator
+
+    # Mock AI trainer instance
+    mock_ai_trainer = MagicMock()
+    mock_ai_trainer.load_models = AsyncMock()
+    mock_ai_trainer_class.return_value = mock_ai_trainer
+
+    mock_hass_with_nordpool.config_entries.async_forward_entry_setups = AsyncMock()
+
+    result = await async_setup_entry(mock_hass_with_nordpool, mock_config_entry)
+
+    assert result is True
+    # Verify AI trainer is in entry data
+    entry_data = mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]
+    assert "ai_trainer" in entry_data
+    assert entry_data["ai_trainer"] == mock_ai_trainer
+    assert "ai_enabled" in entry_data
+    assert entry_data["ai_enabled"] is False
+    # Verify load_models was called
+    mock_ai_trainer.load_models.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_async_unload_entry(mock_hass, mock_config_entry):
     """Test async_unload_entry unloads platforms."""
     # Setup initial data
@@ -140,14 +172,18 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        # Verify all 3 services are registered
-        assert mock_hass.services.async_register.call_count == 3
+        # Verify all 6 services are registered (3 original + 3 AI)
+        assert mock_hass.services.async_register.call_count == 6
 
-        # Check that sync_sungrow_parameters service was registered
+        # Check that services were registered
         registered_services = [call[0][1] for call in mock_hass.services.async_register.call_args_list]
         assert SERVICE_SYNC_SUNGROW_PARAMS in registered_services
         assert "generate_automation_scripts" in registered_services
         assert "force_refresh" in registered_services
+        # AI services
+        assert "train_ai_models" in registered_services
+        assert "get_ai_prediction" in registered_services
+        assert "set_ai_mode" in registered_services
 
     @pytest.mark.asyncio
     async def test_handle_sync_with_entry_id(self, mock_hass, mock_config_entry_sungrow):
