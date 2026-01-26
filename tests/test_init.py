@@ -1,4 +1,5 @@
 """Tests for __init__.py integration setup."""
+
 import inspect
 import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
@@ -20,7 +21,7 @@ def create_service_call(hass, domain, service, data):
     """Create ServiceCall with backward compatibility for different HA versions."""
     # Check if ServiceCall accepts hass parameter (HA 2025.10+)
     sig = inspect.signature(ServiceCall.__init__)
-    if 'hass' in sig.parameters:
+    if "hass" in sig.parameters:
         return ServiceCall(hass=hass, domain=domain, service=service, data=data)
     else:
         # Older versions don't require hass
@@ -43,7 +44,9 @@ async def test_async_setup(mock_hass):
 
 @pytest.mark.asyncio
 @patch("custom_components.battery_energy_trading.BatteryEnergyTradingCoordinator")
-async def test_async_setup_entry(mock_coordinator_class, mock_hass_with_nordpool, mock_config_entry):
+async def test_async_setup_entry(
+    mock_coordinator_class, mock_hass_with_nordpool, mock_config_entry
+):
     """Test async_setup_entry forwards platforms."""
     # Mock coordinator instance
     mock_coordinator = MagicMock()
@@ -58,8 +61,14 @@ async def test_async_setup_entry(mock_coordinator_class, mock_hass_with_nordpool
     # Verify domain data stored
     assert DOMAIN in mock_hass_with_nordpool.data
     assert mock_config_entry.entry_id in mock_hass_with_nordpool.data[DOMAIN]
-    assert mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]["data"] == mock_config_entry.data
-    assert mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]["options"] == mock_config_entry.options
+    assert (
+        mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]["data"]
+        == mock_config_entry.data
+    )
+    assert (
+        mock_hass_with_nordpool.data[DOMAIN][mock_config_entry.entry_id]["options"]
+        == mock_config_entry.options
+    )
 
     # Verify platforms forwarded
     mock_hass_with_nordpool.config_entries.async_forward_entry_setups.assert_called_once_with(
@@ -140,14 +149,18 @@ class TestSyncSungrowParamsService:
         config = {}
         await async_setup(mock_hass, config)
 
-        # Verify all 3 services are registered
-        assert mock_hass.services.async_register.call_count == 3
+        # Verify all 5 services are registered
+        assert mock_hass.services.async_register.call_count == 5
 
-        # Check that sync_sungrow_parameters service was registered
-        registered_services = [call[0][1] for call in mock_hass.services.async_register.call_args_list]
+        # Check that all services were registered
+        registered_services = [
+            call[0][1] for call in mock_hass.services.async_register.call_args_list
+        ]
         assert SERVICE_SYNC_SUNGROW_PARAMS in registered_services
         assert "generate_automation_scripts" in registered_services
         assert "force_refresh" in registered_services
+        assert "install_automations" in registered_services
+        assert "uninstall_automations" in registered_services
 
     @pytest.mark.asyncio
     async def test_handle_sync_with_entry_id(self, mock_hass, mock_config_entry_sungrow):
@@ -191,8 +204,7 @@ class TestSyncSungrowParamsService:
 
             # Call service
             call = create_service_call(
-                mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS,
-                {"entry_id": "test_sungrow_entry"}
+                mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS, {"entry_id": "test_sungrow_entry"}
             )
             await service_handler(call)
 
@@ -307,9 +319,7 @@ class TestSyncSungrowParamsService:
         # Should log error but not raise exception
 
     @pytest.mark.asyncio
-    async def test_handle_sync_preserves_other_options(
-        self, mock_hass, mock_config_entry_sungrow
-    ):
+    async def test_handle_sync_preserves_other_options(self, mock_hass, mock_config_entry_sungrow):
         """Test service call preserves other options."""
         config = {}
         await async_setup(mock_hass, config)
@@ -352,8 +362,7 @@ class TestSyncSungrowParamsService:
             )
 
             call = create_service_call(
-                mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS,
-                {"entry_id": "test_sungrow_entry"}
+                mock_hass, DOMAIN, SERVICE_SYNC_SUNGROW_PARAMS, {"entry_id": "test_sungrow_entry"}
             )
             await service_handler(call)
 
@@ -409,12 +418,16 @@ class TestDomainData:
 
         # Both entries should be in domain data
         assert mock_config_entry.entry_id in mock_hass_with_nordpool_and_sungrow.data[DOMAIN]
-        assert mock_config_entry_sungrow.entry_id in mock_hass_with_nordpool_and_sungrow.data[DOMAIN]
+        assert (
+            mock_config_entry_sungrow.entry_id in mock_hass_with_nordpool_and_sungrow.data[DOMAIN]
+        )
 
         # Verify data is separate
         assert (
             mock_hass_with_nordpool_and_sungrow.data[DOMAIN][mock_config_entry.entry_id]["data"]
-            != mock_hass_with_nordpool_and_sungrow.data[DOMAIN][mock_config_entry_sungrow.entry_id]["data"]
+            != mock_hass_with_nordpool_and_sungrow.data[DOMAIN][mock_config_entry_sungrow.entry_id][
+                "data"
+            ]
         )
 
 

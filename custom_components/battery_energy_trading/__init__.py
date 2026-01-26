@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .const import CONF_NORDPOOL_ENTITY
@@ -31,6 +32,14 @@ PLATFORMS = [
 ]
 
 SERVICE_SYNC_SUNGROW_PARAMS = "sync_sungrow_parameters"
+SERVICE_INSTALL_AUTOMATIONS = "install_automations"
+SERVICE_UNINSTALL_AUTOMATIONS = "uninstall_automations"
+
+# Automation IDs used by this integration (for identification and cleanup)
+AUTOMATION_IDS = [
+    "battery_trading_auto_discharge",
+    "battery_trading_auto_charging",
+]
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:  # noqa: ARG001
@@ -138,6 +147,90 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:  # n
         await coord.async_request_refresh()
         _LOGGER.info("Forced coordinator refresh for entry %s", config_entry_id)
 
+    async def handle_install_automations(call: ServiceCall) -> None:
+        """Handle install_automations service call - create automations programmatically."""
+        from .automation_installer import AutomationInstaller
+
+        config_entry_id = call.data.get("config_entry_id")
+
+        # Find first entry if not specified
+        if not config_entry_id:
+            entries = hass.config_entries.async_entries(DOMAIN)
+            if entries:
+                config_entry_id = entries[0].entry_id
+            else:
+                raise HomeAssistantError("No Battery Energy Trading config entries found")
+
+        target_entry = hass.config_entries.async_get_entry(config_entry_id)
+
+        if not target_entry:
+            raise HomeAssistantError(f"Config entry {config_entry_id} not found")
+
+        installer = AutomationInstaller(hass, target_entry)
+
+        try:
+            created_ids = await installer.async_install_automations()
+            _LOGGER.info(
+                "Successfully installed %d automations: %s",
+                len(created_ids),
+                ", ".join(created_ids),
+            )
+
+            # Fire event for UI notification
+            hass.bus.async_fire(
+                f"{DOMAIN}_automations_installed",
+                {
+                    "config_entry_id": config_entry_id,
+                    "automation_ids": created_ids,
+                    "count": len(created_ids),
+                },
+            )
+        except Exception as err:
+            _LOGGER.error("Failed to install automations: %s", err)
+            raise HomeAssistantError(f"Failed to install automations: {err}") from err
+
+    async def handle_uninstall_automations(call: ServiceCall) -> None:
+        """Handle uninstall_automations service call - remove integration-managed automations."""
+        from .automation_installer import AutomationInstaller
+
+        config_entry_id = call.data.get("config_entry_id")
+
+        # Find first entry if not specified
+        if not config_entry_id:
+            entries = hass.config_entries.async_entries(DOMAIN)
+            if entries:
+                config_entry_id = entries[0].entry_id
+            else:
+                raise HomeAssistantError("No Battery Energy Trading config entries found")
+
+        target_entry = hass.config_entries.async_get_entry(config_entry_id)
+
+        if not target_entry:
+            raise HomeAssistantError(f"Config entry {config_entry_id} not found")
+
+        installer = AutomationInstaller(hass, target_entry)
+
+        try:
+            removed_ids = await installer.async_uninstall_automations()
+            _LOGGER.info(
+                "Successfully removed %d automations: %s",
+                len(removed_ids),
+                ", ".join(removed_ids) if removed_ids else "none found",
+            )
+
+            # Fire event for UI notification
+            hass.bus.async_fire(
+                f"{DOMAIN}_automations_uninstalled",
+                {
+                    "config_entry_id": config_entry_id,
+                    "automation_ids": removed_ids,
+                    "count": len(removed_ids),
+                },
+            )
+        except Exception as err:
+            _LOGGER.error("Failed to uninstall automations: %s", err)
+            raise HomeAssistantError(f"Failed to uninstall automations: {err}") from err
+
     # Register services
     hass.services.async_register(
         DOMAIN,
@@ -160,6 +253,28 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:  # n
         DOMAIN,
         "force_refresh",
         handle_force_refresh,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_INSTALL_AUTOMATIONS,
+        handle_install_automations,
+        schema=vol.Schema(
+            {
+                vol.Optional("config_entry_id"): cv.string,
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UNINSTALL_AUTOMATIONS,
+        handle_uninstall_automations,
+        schema=vol.Schema(
+            {
+                vol.Optional("config_entry_id"): cv.string,
+            }
+        ),
     )
 
     return True

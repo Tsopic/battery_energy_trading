@@ -76,3 +76,34 @@ SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"
 SWITCH_ENABLE_FORCED_DISCHARGE: Final = "enable_forced_discharge"
 SWITCH_ENABLE_EXPORT_MANAGEMENT: Final = "enable_export_management"
 SWITCH_ENABLE_MULTIDAY_OPTIMIZATION: Final = "enable_multiday_optimization"
+
+# Inverter control types
+CONF_INVERTER_CONTROL_TYPE: Final = "inverter_control_type"
+INVERTER_CONTROL_SUNGROW_MODBUS: Final = "sungrow_modbus"
+INVERTER_CONTROL_SUNGROW_SCRIPTS: Final = "sungrow_scripts"
+INVERTER_CONTROL_CUSTOM: Final = "custom"
+
+# Custom control entity configuration keys
+CONF_CUSTOM_DISCHARGE_SERVICE: Final = "custom_discharge_service"
+CONF_CUSTOM_CHARGE_SERVICE: Final = "custom_charge_service"
+CONF_CUSTOM_NORMAL_SERVICE: Final = "custom_normal_service"
+CONF_CUSTOM_DISCHARGE_ENTITY: Final = "custom_discharge_entity"
+CONF_CUSTOM_CHARGE_ENTITY: Final = "custom_charge_entity"
+CONF_CUSTOM_NORMAL_ENTITY: Final = "custom_normal_entity"
+
+# Default Sungrow script entities
+DEFAULT_SUNGROW_SCRIPT_DISCHARGE: Final = "script.sg_set_forced_discharge_battery_mode"
+DEFAULT_SUNGROW_SCRIPT_CHARGE: Final = "script.sg_set_forced_charge_battery_mode"
+DEFAULT_SUNGROW_SCRIPT_NORMAL: Final = "script.sg_set_self_consumption_mode"
+
+# Default Sungrow Modbus entities
+DEFAULT_SUNGROW_MODBUS_EMS_MODE: Final = "select.sungrow_ems_mode"
+DEFAULT_SUNGROW_MODBUS_DISCHARGE_POWER: Final = "number.sungrow_forced_discharging_power"
+DEFAULT_SUNGROW_MODBUS_CHARGE_POWER: Final = "number.sungrow_forced_charging_power"
+
+# Inverter control type descriptions for UI
+INVERTER_CONTROL_TYPES: Final = {
+    INVERTER_CONTROL_SUNGROW_MODBUS: "Sungrow Modbus (select.sungrow_ems_mode)",
+    INVERTER_CONTROL_SUNGROW_SCRIPTS: "Sungrow Scripts (script.sg_set_*)",
+    INVERTER_CONTROL_CUSTOM: "Custom (specify your own services)",
+}
