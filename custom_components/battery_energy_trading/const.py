@@ -76,3 +76,20 @@ SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"
 SWITCH_ENABLE_FORCED_DISCHARGE: Final = "enable_forced_discharge"
 SWITCH_ENABLE_EXPORT_MANAGEMENT: Final = "enable_export_management"
 SWITCH_ENABLE_MULTIDAY_OPTIMIZATION: Final = "enable_multiday_optimization"
+SWITCH_ENABLE_PERFORMANCE_TRACKING: Final = "enable_performance_tracking"
+
+# Performance tracking sensors
+SENSOR_DAILY_PROFIT: Final = "daily_profit"
+SENSOR_MONTHLY_PROFIT: Final = "monthly_profit"
+SENSOR_TOTAL_PROFIT: Final = "total_profit"
+SENSOR_DECISIONS_TODAY: Final = "decisions_today"
+SENSOR_ENERGY_TRADED_TODAY: Final = "energy_traded_today"
+SENSOR_AVG_SELL_PRICE: Final = "avg_sell_price"
+SENSOR_AVG_BUY_PRICE: Final = "avg_buy_price"
+SENSOR_BEST_DAY_PROFIT: Final = "best_day_profit"
+SENSOR_TOTAL_ENERGY_DISCHARGED: Final = "total_energy_discharged"
+SENSOR_TOTAL_ENERGY_CHARGED: Final = "total_energy_charged"
+
+# Performance tracking services
+SERVICE_EXPORT_PERFORMANCE_DATA: Final = "export_performance_data"
+SERVICE_RESET_PERFORMANCE_TRACKING: Final = "reset_performance_tracking"
