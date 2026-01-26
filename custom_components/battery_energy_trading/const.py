@@ -76,3 +76,14 @@ SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"
 SWITCH_ENABLE_FORCED_DISCHARGE: Final = "enable_forced_discharge"
 SWITCH_ENABLE_EXPORT_MANAGEMENT: Final = "enable_export_management"
 SWITCH_ENABLE_MULTIDAY_OPTIMIZATION: Final = "enable_multiday_optimization"
+SWITCH_SIMULATION_MODE: Final = "simulation_mode"
+
+# Simulation mode sensors
+SENSOR_SIMULATED_REVENUE: Final = "simulated_revenue"
+SENSOR_SIMULATED_COST: Final = "simulated_cost"
+SENSOR_SIMULATED_NET_PROFIT: Final = "simulated_net_profit"
+SENSOR_SIMULATED_ACTIONS: Final = "simulated_actions"
+
+# Service names for simulation
+SERVICE_EXPORT_SIMULATION_DATA: Final = "export_simulation_data"
+SERVICE_RESET_SIMULATION: Final = "reset_simulation"
