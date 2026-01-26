@@ -76,3 +76,19 @@ SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"
 SWITCH_ENABLE_FORCED_DISCHARGE: Final = "enable_forced_discharge"
 SWITCH_ENABLE_EXPORT_MANAGEMENT: Final = "enable_export_management"
 SWITCH_ENABLE_MULTIDAY_OPTIMIZATION: Final = "enable_multiday_optimization"
+SWITCH_SOLAR_AWARE_MODE: Final = "solar_aware_mode"
+
+# Solar forecast settings
+DEFAULT_SOLAR_RESERVE_FACTOR: Final = 0.3  # 30% reserve for sunny days
+DEFAULT_MIN_FORECAST_FOR_RESERVE: Final = 10.0  # kWh minimum for reserve mode
+DEFAULT_EVENING_CONSUMPTION_ESTIMATE: Final = 5.0  # kWh
+
+# Solar forecast sensors
+SENSOR_SOLAR_FORECAST_TODAY: Final = "solar_forecast_today"
+SENSOR_SOLAR_FORECAST_TOMORROW: Final = "solar_forecast_tomorrow"
+SENSOR_SOLAR_INFLUENCE: Final = "solar_influence"
+SENSOR_OPTIMAL_RESERVE: Final = "optimal_reserve"
+
+# Number types for solar forecast
+NUMBER_SOLAR_RESERVE_FACTOR: Final = "solar_reserve_factor"
+NUMBER_EVENING_CONSUMPTION_ESTIMATE: Final = "evening_consumption_estimate"
