@@ -14,12 +14,26 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_LEVEL_ENTITY,
+    CONF_CUSTOM_CHARGE_ENTITY,
+    CONF_CUSTOM_CHARGE_SERVICE,
+    CONF_CUSTOM_DISCHARGE_ENTITY,
+    CONF_CUSTOM_DISCHARGE_SERVICE,
+    CONF_CUSTOM_NORMAL_ENTITY,
+    CONF_CUSTOM_NORMAL_SERVICE,
+    CONF_INVERTER_CONTROL_TYPE,
     CONF_NORDPOOL_ENTITY,
     CONF_SOLAR_FORECAST_ENTITY,
     CONF_SOLAR_POWER_ENTITY,
     DEFAULT_CHARGE_RATE_KW,
     DEFAULT_DISCHARGE_RATE_KW,
+    DEFAULT_SUNGROW_SCRIPT_CHARGE,
+    DEFAULT_SUNGROW_SCRIPT_DISCHARGE,
+    DEFAULT_SUNGROW_SCRIPT_NORMAL,
     DOMAIN,
+    INVERTER_CONTROL_CUSTOM,
+    INVERTER_CONTROL_SUNGROW_MODBUS,
+    INVERTER_CONTROL_SUNGROW_SCRIPTS,
+    INVERTER_CONTROL_TYPES,
 )
 from .sungrow_helper import SungrowHelper
 
@@ -58,6 +72,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._detected_entities: dict[str, str | None] | None = None
         self._config_data: dict[str, Any] | None = None
         self._config_options: dict[str, Any] = {}
+        self._inverter_control_type: str = INVERTER_CONTROL_SUNGROW_MODBUS
 
     def _is_nordpool_available(self) -> bool:
         """Check if Nord Pool integration is available."""
@@ -166,7 +181,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._validate_entities(user_input, errors)
 
             if not errors:
-                # Store config data for dashboard creation step
+                # Store config data for inverter control type step
                 self._config_data = user_input
                 self._config_options = {
                     "charge_rate": auto_config.get(
@@ -178,8 +193,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "inverter_model": auto_config.get("inverter_model"),
                     "auto_detected": True,
                 }
-                # Offer dashboard creation
-                return await self.async_step_dashboard()
+                # Go to inverter control type selection
+                return await self.async_step_inverter_control()
 
         # Build schema with auto-detected defaults
         suggested_values = {
@@ -238,16 +253,151 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._validate_entities(user_input, errors)
 
             if not errors:
-                # Store config data for dashboard creation step
+                # Store config data for inverter control type step
                 self._config_data = user_input
                 self._config_options = {}
-                # Offer dashboard creation
-                return await self.async_step_dashboard()
+                # Go to inverter control type selection
+                return await self.async_step_inverter_control()
 
         return self.async_show_form(
             step_id="manual",
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
+        )
+
+    async def async_step_inverter_control(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle inverter control type selection."""
+        if user_input is not None:
+            control_type = user_input.get(
+                CONF_INVERTER_CONTROL_TYPE, INVERTER_CONTROL_SUNGROW_MODBUS
+            )
+            self._inverter_control_type = control_type
+            self._config_options[CONF_INVERTER_CONTROL_TYPE] = control_type
+
+            if control_type == INVERTER_CONTROL_CUSTOM:
+                return await self.async_step_custom_control()
+
+            if control_type == INVERTER_CONTROL_SUNGROW_SCRIPTS:
+                # Store default script entities
+                self._config_options[CONF_CUSTOM_DISCHARGE_ENTITY] = (
+                    DEFAULT_SUNGROW_SCRIPT_DISCHARGE
+                )
+                self._config_options[CONF_CUSTOM_CHARGE_ENTITY] = DEFAULT_SUNGROW_SCRIPT_CHARGE
+                self._config_options[CONF_CUSTOM_NORMAL_ENTITY] = DEFAULT_SUNGROW_SCRIPT_NORMAL
+                self._config_options[CONF_CUSTOM_DISCHARGE_SERVICE] = "script.turn_on"
+                self._config_options[CONF_CUSTOM_CHARGE_SERVICE] = "script.turn_on"
+                self._config_options[CONF_CUSTOM_NORMAL_SERVICE] = "script.turn_on"
+
+            return await self.async_step_dashboard()
+
+        return self.async_show_form(
+            step_id="inverter_control",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_INVERTER_CONTROL_TYPE,
+                        default=INVERTER_CONTROL_SUNGROW_MODBUS,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                selector.SelectOptionDict(
+                                    value=INVERTER_CONTROL_SUNGROW_MODBUS,
+                                    label=INVERTER_CONTROL_TYPES[INVERTER_CONTROL_SUNGROW_MODBUS],
+                                ),
+                                selector.SelectOptionDict(
+                                    value=INVERTER_CONTROL_SUNGROW_SCRIPTS,
+                                    label=INVERTER_CONTROL_TYPES[INVERTER_CONTROL_SUNGROW_SCRIPTS],
+                                ),
+                                selector.SelectOptionDict(
+                                    value=INVERTER_CONTROL_CUSTOM,
+                                    label=INVERTER_CONTROL_TYPES[INVERTER_CONTROL_CUSTOM],
+                                ),
+                            ],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            ),
+            description_placeholders={
+                "info": "Select how your inverter is controlled:\n\n"
+                "• **Sungrow Modbus**: Uses select.sungrow_ems_mode and number entities\n"
+                "• **Sungrow Scripts**: Uses script.sg_set_* entities\n"
+                "• **Custom**: Specify your own service calls and entities"
+            },
+        )
+
+    async def async_step_custom_control(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle custom inverter control configuration."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # Store custom control configuration
+            self._config_options[CONF_CUSTOM_DISCHARGE_SERVICE] = user_input.get(
+                CONF_CUSTOM_DISCHARGE_SERVICE, "script.turn_on"
+            )
+            self._config_options[CONF_CUSTOM_DISCHARGE_ENTITY] = user_input.get(
+                CONF_CUSTOM_DISCHARGE_ENTITY, ""
+            )
+            self._config_options[CONF_CUSTOM_CHARGE_SERVICE] = user_input.get(
+                CONF_CUSTOM_CHARGE_SERVICE, "script.turn_on"
+            )
+            self._config_options[CONF_CUSTOM_CHARGE_ENTITY] = user_input.get(
+                CONF_CUSTOM_CHARGE_ENTITY, ""
+            )
+            self._config_options[CONF_CUSTOM_NORMAL_SERVICE] = user_input.get(
+                CONF_CUSTOM_NORMAL_SERVICE, "script.turn_on"
+            )
+            self._config_options[CONF_CUSTOM_NORMAL_ENTITY] = user_input.get(
+                CONF_CUSTOM_NORMAL_ENTITY, ""
+            )
+
+            return await self.async_step_dashboard()
+
+        return self.async_show_form(
+            step_id="custom_control",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_CUSTOM_DISCHARGE_SERVICE,
+                        default="script.turn_on",
+                    ): str,
+                    vol.Required(CONF_CUSTOM_DISCHARGE_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain=["script", "automation", "input_boolean"]
+                        )
+                    ),
+                    vol.Required(
+                        CONF_CUSTOM_CHARGE_SERVICE,
+                        default="script.turn_on",
+                    ): str,
+                    vol.Required(CONF_CUSTOM_CHARGE_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain=["script", "automation", "input_boolean"]
+                        )
+                    ),
+                    vol.Required(
+                        CONF_CUSTOM_NORMAL_SERVICE,
+                        default="script.turn_on",
+                    ): str,
+                    vol.Required(CONF_CUSTOM_NORMAL_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain=["script", "automation", "input_boolean"]
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "info": "Configure your custom inverter control:\n\n"
+                "**Discharge Mode**: Called when battery should discharge\n"
+                "**Charge Mode**: Called when battery should charge\n"
+                "**Normal Mode**: Called to return to normal operation\n\n"
+                "Service format: domain.service (e.g., script.turn_on)"
+            },
         )
 
     async def async_step_dashboard(self, user_input: dict[str, Any] | None = None) -> FlowResult:
