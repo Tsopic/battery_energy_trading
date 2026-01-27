@@ -77,6 +77,23 @@ SWITCH_ENABLE_FORCED_CHARGING: Final = "enable_forced_charging"
 SWITCH_ENABLE_FORCED_DISCHARGE: Final = "enable_forced_discharge"
 SWITCH_ENABLE_EXPORT_MANAGEMENT: Final = "enable_export_management"
 SWITCH_ENABLE_MULTIDAY_OPTIMIZATION: Final = "enable_multiday_optimization"
+SWITCH_ENABLE_DYNAMIC_THRESHOLDS: Final = "enable_dynamic_thresholds"
+
+# Dynamic threshold settings
+DEFAULT_SELL_PERCENTILE: Final = 80  # Top 20% price slots for selling
+DEFAULT_BUY_PERCENTILE: Final = 20  # Bottom 20% price slots for buying
+DEFAULT_MIN_SPREAD: Final = 0.05  # Minimum EUR spread for profitable trading
+
+# Dynamic threshold sensors
+SENSOR_DYNAMIC_SELL_THRESHOLD: Final = "dynamic_sell_threshold"
+SENSOR_DYNAMIC_BUY_THRESHOLD: Final = "dynamic_buy_threshold"
+SENSOR_PRICE_SPREAD: Final = "price_spread"
+SENSOR_TRADING_RECOMMENDED: Final = "trading_recommended"
+
+# Number types for dynamic thresholds
+NUMBER_SELL_PERCENTILE: Final = "sell_percentile"
+NUMBER_BUY_PERCENTILE: Final = "buy_percentile"
+NUMBER_MIN_SPREAD: Final = "min_spread"
 
 # Inverter control types
 CONF_INVERTER_CONTROL_TYPE: Final = "inverter_control_type"
