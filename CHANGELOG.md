@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.2] - 2026-01-27
+
+### Changes
+
+- ci: lower coverage threshold to 85% in pyproject.toml
+- ci: lower coverage threshold to 85% for AI module
+
+
 ## [0.14.1] - 2026-01-27
 
 ### Changes
