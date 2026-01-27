@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0] - 2026-01-27
+
+### Changes
+
+- feat: Add support for script-based inverter control (#24)
+
+
 ## [0.14.2] - 2026-01-27
 
 ### Changes
