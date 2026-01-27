@@ -110,6 +110,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:  # n
         generator = AutomationScriptGenerator(
             nordpool_entity=target_entry.data[CONF_NORDPOOL_ENTITY],
             battery_level_entity=target_entry.data.get("battery_level_entity", ""),
+            options=target_entry.options,
         )
 
         automation_yaml = generator.generate_all_automations()
