@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.0] - 2026-01-27
+
+### Changes
+
+- feat: Add auto-install automations via Home Assistant API (#25)
+
+
+## [0.15.0] - 2026-01-27
+
+### Changes
+
+- feat: Add support for script-based inverter control (#24)
+
+
+## [0.14.2] - 2026-01-27
+
+### Changes
+
+- ci: lower coverage threshold to 85% in pyproject.toml
+- ci: lower coverage threshold to 85% for AI module
+
+
 ## [0.14.1] - 2026-01-27
 
 ### Changes
