@@ -5,7 +5,9 @@
     "@Tsopic"
   ],
   "config_flow": true,
-  "dependencies": ["recorder"],
+  "dependencies": [
+    "recorder"
+  ],
   "documentation": "https://github.com/Tsopic/battery_energy_trading",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Tsopic/battery_energy_trading/issues",
@@ -14,5 +16,5 @@
     "scikit-learn>=1.3.0",
     "xgboost>=2.0.0"
   ],
-  "version": "0.14.0"
+  "version": "0.14.1"
 }
