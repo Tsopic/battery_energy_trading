@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.0] - 2026-01-27
+
+### Changes
+
+- feat: Add auto-install automations via Home Assistant API (#25)
+
+
 ## [0.15.0] - 2026-01-27
 
 ### Changes
