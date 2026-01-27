@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.0] - 2026-01-27
+
+### Changes
+
+- feat: Dynamic price thresholds based on NordPool data analysis (Issue #20) (#26)
+
+
 ## [0.16.0] - 2026-01-27
 
 ### Changes
