@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.0] - 2026-01-27
+
+### Changes
+
+- ci: lower coverage threshold to 85% in pyproject.toml
+- chore: trigger CI re-run
+- fix: add missing test dependencies and recorder to manifest
+- feat: add simulation/paper-trading mode (issue #21)
+- docs: add AI smart battery management design plan
+
+
+## [0.17.0] - 2026-01-27
+
+### Changes
+
+- feat: Dynamic price thresholds based on NordPool data analysis (Issue #20) (#26)
+
+
+## [0.16.0] - 2026-01-27
+
+### Changes
+
+- feat: Add auto-install automations via Home Assistant API (#25)
+
+
+## [0.15.0] - 2026-01-27
+
+### Changes
+
+- feat: Add support for script-based inverter control (#24)
+
+
+## [0.14.2] - 2026-01-27
+
+### Changes
+
+- ci: lower coverage threshold to 85% in pyproject.toml
+- ci: lower coverage threshold to 85% for AI module
+
+
 ## [0.14.1] - 2026-01-27
 
 ### Changes
