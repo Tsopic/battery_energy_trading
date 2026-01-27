@@ -13,3 +13,8 @@ pytest-homeassistant-custom-component>=0.13.0
 
 # Home Assistant (latest - requires Python 3.13.2+)
 homeassistant>=2025.10.0
+
+# AI/ML dependencies (must match manifest.json requirements)
+scikit-learn>=1.3.0
+xgboost>=2.0.0
+onnxruntime>=1.16.0
