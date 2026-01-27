@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.0] - 2026-01-27
+
+### Changes
+
+- ci: lower coverage threshold to 85% in pyproject.toml
+- chore: trigger CI re-run
+- fix: add missing test dependencies and recorder to manifest
+- feat: add solar forecast integration for smarter scheduling (issue #22)
+
+
 ## [0.18.0] - 2026-01-27
 
 ### Changes
