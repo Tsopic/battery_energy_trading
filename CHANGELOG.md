@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.1] - 2026-01-27
+
+### Changes
+
+- fix: add missing test dependencies and recorder to manifest
+
+
 ## [0.14.0] - 2025-12-02
 
 ### Changes
