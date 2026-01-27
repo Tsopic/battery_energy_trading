@@ -78,6 +78,7 @@ SWITCH_ENABLE_FORCED_DISCHARGE: Final = "enable_forced_discharge"
 SWITCH_ENABLE_EXPORT_MANAGEMENT: Final = "enable_export_management"
 SWITCH_ENABLE_MULTIDAY_OPTIMIZATION: Final = "enable_multiday_optimization"
 SWITCH_ENABLE_DYNAMIC_THRESHOLDS: Final = "enable_dynamic_thresholds"
+SWITCH_SIMULATION_MODE: Final = "simulation_mode"
 
 # Dynamic threshold settings
 DEFAULT_SELL_PERCENTILE: Final = 80  # Top 20% price slots for selling
@@ -94,6 +95,16 @@ SENSOR_TRADING_RECOMMENDED: Final = "trading_recommended"
 NUMBER_SELL_PERCENTILE: Final = "sell_percentile"
 NUMBER_BUY_PERCENTILE: Final = "buy_percentile"
 NUMBER_MIN_SPREAD: Final = "min_spread"
+
+# Simulation mode sensors
+SENSOR_SIMULATED_REVENUE: Final = "simulated_revenue"
+SENSOR_SIMULATED_COST: Final = "simulated_cost"
+SENSOR_SIMULATED_NET_PROFIT: Final = "simulated_net_profit"
+SENSOR_SIMULATED_ACTIONS: Final = "simulated_actions"
+
+# Service names for simulation
+SERVICE_EXPORT_SIMULATION_DATA: Final = "export_simulation_data"
+SERVICE_RESET_SIMULATION: Final = "reset_simulation"
 
 # Inverter control types
 CONF_INVERTER_CONTROL_TYPE: Final = "inverter_control_type"
