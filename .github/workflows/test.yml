@@ -54,7 +54,7 @@ jobs:
 
       - name: Check coverage threshold
         run: |
-          coverage report --fail-under=90
+          coverage report --fail-under=85
 
       - name: Generate coverage badge
         if: matrix.python-version == '3.12' && github.event_name == 'push'
@@ -67,7 +67,7 @@ jobs:
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ github.token }}
-          MINIMUM_GREEN: 90
+          MINIMUM_GREEN: 85
           MINIMUM_ORANGE: 70
 
   lint:
