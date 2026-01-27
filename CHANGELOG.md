@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.0] - 2026-01-27
+
+### Changes
+
+- ci: lower coverage threshold to 85% in pyproject.toml
+- chore: trigger CI re-run
+- fix: add missing test dependencies and recorder to manifest
+- feat: add simulation/paper-trading mode (issue #21)
+- docs: add AI smart battery management design plan
+
+
 ## [0.17.0] - 2026-01-27
 
 ### Changes
