@@ -355,6 +355,51 @@ class TestLowPriceSensor:
 
         assert low_price_sensor.is_on is False
 
+    def test_is_on_uses_configured_threshold(self, low_price_sensor, mock_hass):
+        """Test is_on uses configured threshold from number entity."""
+        # Price is 0.05, which is above DEFAULT (0.0125) but below configured (0.10)
+        nordpool_state = MagicMock()
+        nordpool_state.state = "0.05"
+        
+        # Configure custom threshold via number entity
+        number_state = MagicMock()
+        number_state.entity_id = "number.battery_energy_trading_min_export_price"
+        number_state.state = "0.10"  # Custom threshold
+        
+        def mock_get(entity_id):
+            if entity_id == "sensor.nordpool":
+                return nordpool_state
+            elif entity_id == "number.battery_energy_trading_min_export_price":
+                return number_state
+            return None
+        
+        mock_hass.states.get = Mock(side_effect=mock_get)
+        
+        # With custom threshold 0.10, price 0.05 should be considered low
+        assert low_price_sensor.is_on is True
+
+    def test_is_on_fallback_to_default_when_number_unavailable(self, low_price_sensor, mock_hass):
+        """Test is_on falls back to default when number entity unavailable."""
+        nordpool_state = MagicMock()
+        nordpool_state.state = "0.05"  # Above DEFAULT_MIN_EXPORT_PRICE (0.0125)
+        
+        # Number entity unavailable
+        number_state = MagicMock()
+        number_state.entity_id = "number.battery_energy_trading_min_export_price"
+        number_state.state = "unavailable"
+        
+        def mock_get(entity_id):
+            if entity_id == "sensor.nordpool":
+                return nordpool_state
+            elif entity_id == "number.battery_energy_trading_min_export_price":
+                return number_state
+            return None
+        
+        mock_hass.states.get = Mock(side_effect=mock_get)
+        
+        # Should use default threshold, so 0.05 > 0.0125 means NOT low price
+        assert low_price_sensor.is_on is False
+
 
 class TestExportProfitableSensor:
     """Test ExportProfitableSensor."""
@@ -400,6 +445,51 @@ class TestExportProfitableSensor:
         mock_hass.states.get = Mock(return_value=mock_state)
 
         assert export_profitable_sensor.is_on is False
+
+    def test_is_on_uses_configured_threshold(self, export_profitable_sensor, mock_hass):
+        """Test is_on uses configured threshold from number entity."""
+        # Price is 0.05, which is above DEFAULT (0.0125) but below configured (0.10)
+        nordpool_state = MagicMock()
+        nordpool_state.state = "0.05"
+        
+        # Configure custom threshold via number entity
+        number_state = MagicMock()
+        number_state.entity_id = "number.battery_energy_trading_min_export_price"
+        number_state.state = "0.10"  # Custom threshold
+        
+        def mock_get(entity_id):
+            if entity_id == "sensor.nordpool":
+                return nordpool_state
+            elif entity_id == "number.battery_energy_trading_min_export_price":
+                return number_state
+            return None
+        
+        mock_hass.states.get = Mock(side_effect=mock_get)
+        
+        # With custom threshold 0.10, price 0.05 is NOT profitable (below threshold)
+        assert export_profitable_sensor.is_on is False
+
+    def test_is_on_fallback_to_default_when_number_unavailable(self, export_profitable_sensor, mock_hass):
+        """Test is_on falls back to default when number entity unavailable."""
+        nordpool_state = MagicMock()
+        nordpool_state.state = "0.05"  # Above DEFAULT_MIN_EXPORT_PRICE (0.0125)
+        
+        # Number entity unavailable
+        number_state = MagicMock()
+        number_state.entity_id = "number.battery_energy_trading_min_export_price"
+        number_state.state = "unavailable"
+        
+        def mock_get(entity_id):
+            if entity_id == "sensor.nordpool":
+                return nordpool_state
+            elif entity_id == "number.battery_energy_trading_min_export_price":
+                return number_state
+            return None
+        
+        mock_hass.states.get = Mock(side_effect=mock_get)
+        
+        # Should use default threshold, so 0.05 > 0.0125 means profitable
+        assert export_profitable_sensor.is_on is True
 
 
 class TestCheapestHoursSensor:
