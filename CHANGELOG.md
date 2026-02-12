@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.1] - 2026-02-12
+
+### Changes
+
+- fix: use configurable min_export_price threshold in binary sensors (#32)
+- docs: add legacy configuration.yaml for reference (#31)
+
+
 ## [0.20.0] - 2026-01-27
 
 ### Changes
