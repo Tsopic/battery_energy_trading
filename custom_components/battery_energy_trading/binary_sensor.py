@@ -295,7 +295,8 @@ class LowPriceSensor(BatteryTradingBinarySensor):
             min_export_price_state = self.hass.states.get(_MIN_EXPORT_PRICE_ENTITY_ID)
             if (
                 min_export_price_state
-                and getattr(min_export_price_state, "entity_id", None) == _MIN_EXPORT_PRICE_ENTITY_ID
+                and getattr(min_export_price_state, "entity_id", None)
+                == _MIN_EXPORT_PRICE_ENTITY_ID
                 and min_export_price_state.state not in ("unknown", "unavailable")
             ):
                 threshold = float(min_export_price_state.state)
@@ -337,7 +338,8 @@ class ExportProfitableSensor(BatteryTradingBinarySensor):
             min_export_price_state = self.hass.states.get(_MIN_EXPORT_PRICE_ENTITY_ID)
             if (
                 min_export_price_state
-                and getattr(min_export_price_state, "entity_id", None) == _MIN_EXPORT_PRICE_ENTITY_ID
+                and getattr(min_export_price_state, "entity_id", None)
+                == _MIN_EXPORT_PRICE_ENTITY_ID
                 and min_export_price_state.state not in ("unknown", "unavailable")
             ):
                 threshold = float(min_export_price_state.state)
