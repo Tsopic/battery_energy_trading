@@ -1,0 +1,446 @@
+# Home Assistant Configuration - Battery Management & Energy Trading
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Uncomment and configure SSL if needed
+#http:
+#  ssl_certificate: /ssl/fullchain.pem
+#  ssl_key: /ssl/privkey.pem
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+# Configuration for battery management and energy trading
+input_number:
+  forced_discharge_hours:
+    name: "Set selling hours"
+    min: 0
+    max: 32
+    step: 1
+    unit_of_measurement: "hours"
+    initial: 8
+    
+  min_export_price:
+    name: "Minimum Export Price"
+    min: -0.3
+    max: 0.1
+    step: 0.0001
+    unit_of_measurement: "EUR"
+    initial: 0.0125
+      
+  min_forced_sell_price:
+    name: "Minimum Forced Sell Price"
+    min: 0
+    max: 0.5
+    step: 0.01
+    unit_of_measurement: "EUR"
+    initial: 0.3
+    
+  max_price_force_charge:
+    name: "Maximum price for force charge"
+    min: -0.5
+    max: 0.20
+    step: 0.005
+    unit_of_measurement: "EUR"
+    initial: 0.00
+  
+  max_battery_f_charging_time:
+    name: "Battery force charging hours"
+    min: 0
+    max: 24
+    step: 1
+    unit_of_measurement: "hours"
+    initial: 1
+    
+  force_charge_battery_target:
+    name: "Force Charge: Battery target %"
+    min: 0
+    max: 100
+    initial: 70
+    unit_of_measurement: "%"
+    
+  min_battery_discharge_level:
+    name: "Minimum Battery Level for Discharge"
+    min: 10
+    max: 50
+    step: 1
+    initial: 25
+    unit_of_measurement: "%"
+    
+  min_solar_power_threshold:
+    name: "Minimum Solar Power for Discharge Override"
+    min: 0
+    max: 5000
+    step: 100
+    initial: 500
+    unit_of_measurement: "W"
+
+# Timers for battery operations
+timer:
+  forced_battery_charging:
+    duration: '00:01:00'
+  forced_discharge:
+    duration: '00:01:00'
+
+# Template sensors and binary sensors - FULL RESTORED VERSION
+template:
+  - sensor:
+      # Arbitrage opportunity detector
+      - name: arbitrage_opportunities
+        unique_id: arbitrage_opportunities
+        state: >-
+          {% set threshold = 100 %}
+          {% set raw_prices = state_attr('sensor.nordpool_kwh_ee_eur_3_10_022', 'raw_today') %}
+          {% if raw_prices and raw_prices|length > 2 %}
+            {% set ns = namespace(best_opportunity={
+              'charge_start_hour': 0,
+              'charge_end_hour': 1,
+              'discharge_hour': 2,
+              'difference': 0
+            }) %}
+            {% for i in range(raw_prices | length - 2) %}
+              {% set charge_price = (raw_prices[i].value + raw_prices[i+1].value) / 2 %}
+              {% for j in range(i+2, raw_prices | length) %}
+                {% set discharge_price = raw_prices[j].value %}
+                {% set price_difference = (discharge_price - charge_price) * 1000 %}
+                {% if price_difference > threshold and price_difference > ns.best_opportunity.difference %}
+                  {% set ns.best_opportunity = {
+                    'charge_start_hour': raw_prices[i].start.hour,
+                    'charge_end_hour': raw_prices[i+1].end.hour,
+                    'discharge_hour': raw_prices[j].start.hour,
+                    'difference': price_difference
+                  } %}
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+            {% if ns.best_opportunity.difference > 0 %}
+              Charge from hour {{ ns.best_opportunity.charge_start_hour }} to {{ ns.best_opportunity.charge_end_hour }}, Discharge at hour {{ ns.best_opportunity.discharge_hour }} (Difference: {{ ns.best_opportunity.difference|round(0) }} points)
+            {% else %}
+              No profitable arbitrage opportunities found (threshold: {{ threshold }} points)
+            {% endif %}
+          {% else %}
+            No price data available
+          {% endif %}
+
+      # Selected hours for forced discharge
+      - name: selected_hours_for_forced_discharge
+        unique_id: selected_hours_for_forced_discharge
+        state: >-
+          {% set sell_hours = states('input_number.forced_discharge_hours')|int(2) %}
+          {% set min_price = states('input_number.min_forced_sell_price')|float(0.3) %}
+          {% set today_data = state_attr('sensor.nordpool_kwh_ee_eur_3_10_022', 'raw_today') %}
+          {% if today_data %}
+            {% set sorted_data = today_data|sort(attribute='value', reverse=true) %}
+            {% set ns = namespace(selected_hours='', counter=0) %}
+            {% for entry in sorted_data %}
+              {% if entry.value >= min_price and ns.counter < sell_hours %}
+                {% set ns.selected_hours = ns.selected_hours + entry.start.strftime('%Y-%m-%d %H:%M:%S') + ', ' %}
+                {% set ns.counter = ns.counter + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.selected_hours[:-2] if ns.selected_hours else 'No hours selected' }}
+          {% else %}
+            No data available
+          {% endif %}
+            
+      # Selected hours for forced charging today
+      - name: selected_hours_for_forced_charging_today
+        unique_id: selected_hours_for_forced_charging_today
+        state: >-
+          {% set hours_needed = states('input_number.max_battery_f_charging_time')|int(1) %}
+          {% set max_price = states('input_number.max_price_force_charge')|float(0) %}
+          {% set nordpool_data = state_attr('sensor.nordpool_kwh_ee_eur_3_10_022', 'raw_today') %}
+          {% if nordpool_data %}
+            {% set sorted_data = nordpool_data|sort(attribute='value') %}
+            {% set ns = namespace(selected_hours=[]) %}
+            {% for entry in sorted_data %}
+              {% if entry.value <= max_price and ns.selected_hours|length < hours_needed %}
+                {% set ns.selected_hours = ns.selected_hours + [entry.start.strftime('%Y-%m-%d %H:%M:%S')] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.selected_hours }}
+          {% else %}
+            []
+          {% endif %}
+              
+      # Selected hours for profitable sell
+      - name: selected_hours_for_profitable_sell
+        unique_id: selected_hours_for_profitable_sell
+        state: >-
+          {% set min_sell_price = states('input_number.min_forced_sell_price')|float(0.3) %}
+          {% set sell_hours = states('input_number.forced_discharge_hours')|int(2) %}
+          {% set today_data = state_attr('sensor.nordpool_kwh_ee_eur_3_10_022', 'raw_today') %}
+          {% if today_data %}
+            {% set sorted_data = today_data|sort(attribute='value', reverse=true) %}
+            {% set ns = namespace(profitable_hours=[], counter=0) %}
+            {% for entry in sorted_data %}
+              {% if entry.value >= min_sell_price + 0.1 and ns.counter < sell_hours %}
+                {% set ns.profitable_hours = ns.profitable_hours + [entry.start.strftime('%H:%M')] %}
+                {% set ns.counter = ns.counter + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.profitable_hours }}
+          {% else %}
+            []
+          {% endif %}
+            
+      # Selected hours for economical charge
+      - name: selected_hours_for_economical_charge
+        unique_id: selected_hours_for_economical_charge
+        state: >-
+          {% set max_price = states('input_number.max_price_force_charge')|float(0) %}
+          {% set hours_needed = states('input_number.max_battery_f_charging_time')|int(1) %}
+          {% set profitable_hours = states('sensor.selected_hours_for_profitable_sell') %}
+          {% set today_data = state_attr('sensor.nordpool_kwh_ee_eur_3_10_022', 'raw_today') %}
+          {% if today_data %}
+            {% set sorted_data = today_data|sort(attribute='value') %}
+            {% set ns = namespace(economical_hours=[], counter=0) %}
+            {% for entry in sorted_data %}
+              {% set hour = entry.start.strftime('%H:%M') %}
+              {% if entry.value <= max_price and hour not in profitable_hours and ns.counter < hours_needed %}
+                {% set ns.economical_hours = ns.economical_hours + [hour] %}
+                {% set ns.counter = ns.counter + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.economical_hours }}
+          {% else %}
+            []
+          {% endif %}
+
+  - binary_sensor:
+      # Complex forced discharge timer with battery level and solar power check
+      - name: forced_discharge_timer
+        unique_id: forced_discharge_timer
+        state: >-
+          {% set current_time = now() %}
+          {% set current_date = current_time.date() %}
+          {% set current_hour = current_time.hour %}
+          {% set min_forced_sell_price = states('input_number.min_forced_sell_price')|float(0.3) %}
+          {% set forced_discharge_hours = states('input_number.forced_discharge_hours')|int(2) %}
+          {% set battery_capacity = states('sensor.battery_capacity')|float(0) %}
+          {% set battery_level = states('sensor.battery_level')|float(0) %}
+          {% set min_battery_level = states('input_number.min_battery_discharge_level')|float(25) %}
+          {% set solar_power = states('sensor.power_production_now')|float(0) %}
+          {% set min_solar_threshold = states('input_number.min_solar_power_threshold')|float(500) %}
+          {% set today_data = state_attr('sensor.nordpool_kwh_ee_eur_3_10_022', 'raw_today') %}
+          {% if battery_capacity > 35 and (battery_level > min_battery_level or solar_power >= min_solar_threshold) and today_data %}
+            {% set sorted_data = today_data|sort(attribute='value', reverse=true) %}
+            {% set ns = namespace(found=false, counter=0) %}
+            {% for entry in sorted_data %}
+              {% if entry.value >= min_forced_sell_price and ns.counter < forced_discharge_hours %}
+                {% set entry_date = entry.start.date() %}
+                {% set entry_hour = entry.start.hour %}
+                {% set ns.counter = ns.counter + 1 %}
+                {% if entry_date == current_date and entry_hour == current_hour %}
+                  {% set ns.found = true %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.found }}
+          {% else %}
+            {{ false }}
+          {% endif %}
+
+      # Low price mode detector
+      - name: low_price_mode
+        unique_id: low_price_mode
+        state: >-
+          {% set price = states('sensor.nordpool_kwh_ee_eur_3_10_022')|float(999) %}
+          {% set min_price = states('input_number.min_export_price')|float(0.0125) %}
+          {{ price <= min_price }}
+
+      # Export profitable mode detector
+      - name: export_profitable_mode
+        unique_id: export_profitable_mode
+        state: >-
+          {% set current_price = states('sensor.nordpool_kwh_ee_eur_3_10_022')|float(0) %}
+          {% set min_export_price = states('input_number.min_export_price')|float(0.0125) %}
+          {{ current_price > min_export_price }}
+            
+      # Cheapest hours for charging timer
+      - name: cheapest_hours_for_charging_timer
+        unique_id: cheapest_hours_for_charging_timer
+        state: >-
+          {% set hours_needed = states('input_number.max_battery_f_charging_time')|int(1) %}
+          {% set max_price = states('input_number.max_price_force_charge')|float(0) %}
+          {% set nordpool_data = state_attr('sensor.nordpool_kwh_ee_eur_3_10_022', 'raw_today') %}
+          {% set current_hour = now().hour %}
+          {% if nordpool_data %}
+            {% set sorted_data = nordpool_data|sort(attribute='value') %}
+            {% set ns = namespace(cheapest_hours=[]) %}
+            {% for entry in sorted_data %}
+              {% if entry.value <= max_price and ns.cheapest_hours|length < hours_needed %}
+                {% set ns.cheapest_hours = ns.cheapest_hours + [entry.start.hour] %}
+              {% endif %}
+            {% endfor %}
+            {{ current_hour in ns.cheapest_hours }}
+          {% else %}
+            {{ false }}
+          {% endif %}
+            
+      # Battery below 15% detector
+      - name: battery_below_15
+        unique_id: battery_below_15
+        state: >-
+          {{ states('sensor.battery_level')|float(100) < 15 }}
+          
+      # Solar power availability detector
+      - name: solar_power_available
+        unique_id: solar_power_available
+        state: >-
+          {% set solar_power = states('sensor.power_production_now')|float(0) %}
+          {% set min_solar_threshold = states('input_number.min_solar_power_threshold')|float(500) %}
+          {{ solar_power >= min_solar_threshold }}
+
+      # Nord Pool price above minimum detector
+      - name: nordpool_price_above_min
+        unique_id: nordpool_price_above_min
+        state: >-
+          {% set current_price = state_attr('sensor.nordpool_kwh_ee_eur_3_10_022', 'value')|float(0) %}
+          {% set min_price = states('input_number.min_forced_sell_price')|float(0.3) %}
+          {{ current_price > min_price }}
+
+# Text-to-speech
+tts:
+  - platform: google_translate
+
+# Automations
+automation:
+  # Battery charging management during cheapest hours
+  - alias: Forced Battery Charging Management
+    id: forced_battery_charging_management
+    description: "Manages forced battery charging during cheapest hours based on battery level."
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.cheapest_hours_for_charging_timer
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.cheapest_hours_for_charging_timer
+                state: 'on'
+            sequence:
+              - service: script.sg_set_forced_charge_battery_mode
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.cheapest_hours_for_charging_timer
+                state: 'off'
+            sequence:
+              - service: script.sg_set_self_consumption_mode
+
+  # Battery discharge management during high price hours
+  - alias: Forced Battery Discharge Management
+    id: forced_battery_discharge_management
+    description: "Forced discharge of battery during specified high-price hours with minimum battery level protection and solar override."
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.forced_discharge_timer
+      - platform: numeric_state
+        entity_id: sensor.battery_level
+        below: input_number.min_battery_discharge_level
+      - platform: state
+        entity_id: binary_sensor.solar_power_available
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.forced_discharge_timer
+                state: 'on'
+              - condition: or
+                conditions:
+                  - condition: numeric_state
+                    entity_id: sensor.battery_level
+                    above: input_number.min_battery_discharge_level
+                  - condition: state
+                    entity_id: binary_sensor.solar_power_available
+                    state: 'on'
+            sequence:
+              - service: script.sg_set_forced_discharge_battery_mode
+              - service: notify.notify
+                data:
+                  title: "Battery Discharge Started"
+                  message: >-
+                    Forced discharge activated. Battery: {{ states('sensor.battery_level')|float(0) }}%, 
+                    Solar: {{ states('sensor.power_production_now')|float(0) }}W, 
+                    Price: {{ states('sensor.nordpool_kwh_ee_eur_3_10_022')|float(0) }} EUR/kWh
+                    {% if states('sensor.power_production_now')|float(0) >= states('input_number.min_solar_power_threshold')|float(500) %}
+                    (Solar override active)
+                    {% endif %}
+          - conditions:
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity_id: binary_sensor.forced_discharge_timer
+                    state: 'off'
+                  - condition: and
+                    conditions:
+                      - condition: numeric_state
+                        entity_id: sensor.battery_level
+                        below: input_number.min_battery_discharge_level
+                      - condition: state
+                        entity_id: binary_sensor.solar_power_available
+                        state: 'off'
+            sequence:
+              - service: script.sg_set_self_consumption_mode
+              - service: notify.notify
+                data:
+                  title: "Battery Discharge Stopped"
+                  message: >-
+                    {% set battery_level = states('sensor.battery_level')|float(0) %}
+                    {% set min_level = states('input_number.min_battery_discharge_level')|float(25) %}
+                    {% set solar_power = states('sensor.power_production_now')|float(0) %}
+                    {% set min_solar = states('input_number.min_solar_power_threshold')|float(500) %}
+                    {% if battery_level < min_level and solar_power < min_solar %}
+                      Forced discharge stopped - Battery level ({{ battery_level }}%) below minimum ({{ min_level }}%) and insufficient solar ({{ solar_power }}W < {{ min_solar }}W)
+                    {% elif not is_state('binary_sensor.forced_discharge_timer', 'on') %}
+                      Forced discharge stopped - High price period ended
+                    {% else %}
+                      Forced discharge stopped - Conditions no longer met
+                    {% endif %}
+
+  # Export limiter management based on price conditions
+  - alias: Export Limiter Management
+    id: export_limiter_management
+    description: "Manages export power limit based on energy prices to prevent selling at loss"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.low_price_mode
+      - platform: state
+        entity_id: binary_sensor.export_profitable_mode
+    condition:
+      - condition: template
+        value_template: "{{ trigger.from_state is not none }}"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.set_sg_export_power_limit
+        data:
+          value: >-
+            {% if is_state('binary_sensor.low_price_mode', 'on') %}
+              0
+            {% elif is_state('binary_sensor.export_profitable_mode', 'on') %}
+              10000
+            {% else %}
+              0
+            {% endif %}
+      - service: notify.notify
+        data:
+          title: "Export Limiter Update"
+          message: >-
+            {% set price = states('sensor.nordpool_kwh_ee_eur_3_10_022') %}
+            {% set min_export = states('input_number.min_export_price') %}
+            {% set limit = states('input_number.set_sg_export_power_limit') %}
+            {% if is_state('binary_sensor.low_price_mode', 'on') %}
+              Export DISABLED (0W) - Price too low ({{ price }} ≤ {{ min_export }} EUR/kWh)
+            {% elif is_state('binary_sensor.export_profitable_mode', 'on') %}
+              Export ENABLED ({{ limit }}W) - Profitable price ({{ price }} > {{ min_export }} EUR/kWh)
+            {% else %}
+              Export DISABLED (0W) - Price at minimum threshold ({{ price }} EUR/kWh)
+            {% endif %}
+
+# Include other configuration files
+scene: !include scenes.yaml
+
+homeassistant:
+  packages: !include_dir_named integrations
