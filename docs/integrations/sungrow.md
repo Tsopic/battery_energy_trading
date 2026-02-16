@@ -386,6 +386,44 @@ automation:
           message: "Discharge stopped - Battery below 15%"
 ```
 
+### 6. Midnight Safety Reset
+
+Reset inverter to Self-consumption at midnight to prevent the inverter from getting stuck in Forced Mode overnight (e.g., after a failed state transition or external override):
+
+```yaml
+automation:
+  - alias: "Battery Trading: Midnight Safety Reset"
+    description: "Reset inverter to Self-consumption at midnight if no active slots"
+    trigger:
+      - platform: time
+        at: "00:00:00"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.battery_energy_trading_forced_discharge
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.battery_energy_trading_cheapest_hours
+        state: 'off'
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.sungrow_ems_mode
+        data:
+          option: "Self-consumption"
+
+      - service: number.set_value
+        target:
+          entity_id: number.sungrow_forced_discharging_power
+        data:
+          value: 0
+
+      - service: number.set_value
+        target:
+          entity_id: number.sungrow_forced_charging_power
+        data:
+          value: 0
+```
+
 ## 📊 Dashboard Integration
 
 Add Sungrow entities to your Battery Energy Trading dashboard:
@@ -502,6 +540,25 @@ automation:
             {% else %}
               0
             {% endif %}
+
+  # Midnight safety reset - prevents inverter from staying in wrong mode
+  - alias: "Battery Trading: Midnight Safety Reset"
+    trigger:
+      - platform: time
+        at: "00:00:00"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.battery_energy_trading_forced_discharge
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.battery_energy_trading_cheapest_hours
+        state: 'off'
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.sungrow_ems_mode
+        data:
+          option: "Self-consumption"
 ```
 
 ## 💡 Tips

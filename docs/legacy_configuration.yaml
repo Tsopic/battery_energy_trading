@@ -439,6 +439,28 @@ automation:
               Export DISABLED (0W) - Price at minimum threshold ({{ price }} EUR/kWh)
             {% endif %}
 
+  # Midnight safety reset - prevents inverter from staying in Forced Mode overnight
+  - alias: Midnight Safety Reset
+    id: midnight_safety_reset
+    description: "Reset inverter to Self-consumption at midnight if no active charge/discharge slots"
+    trigger:
+      - platform: time
+        at: "00:00:00"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.forced_discharge_timer
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.cheapest_hours_for_charging_timer
+        state: 'off'
+    action:
+      - service: script.sg_set_self_consumption_mode
+      - service: notify.notify
+        data:
+          title: "Midnight Safety Reset"
+          message: "Inverter reset to Self-consumption mode"
+
+
 # Include other configuration files
 scene: !include scenes.yaml
 
