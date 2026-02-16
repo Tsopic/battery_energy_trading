@@ -460,6 +460,7 @@ automation:
           title: "Midnight Safety Reset"
           message: "Inverter reset to Self-consumption mode"
 
+
 # Include other configuration files
 scene: !include scenes.yaml
 

@@ -41,6 +41,7 @@ from .const import (
     NUMBER_FORCED_DISCHARGE_HOURS,
     NUMBER_MAX_FORCE_CHARGE_PRICE,
     NUMBER_MIN_BATTERY_LEVEL,
+    NUMBER_MIN_EXPORT_PRICE,
     NUMBER_MIN_FORCED_SELL_PRICE,
     NUMBER_MIN_SOLAR_THRESHOLD,
     SWITCH_ENABLE_FORCED_CHARGING,
@@ -51,6 +52,10 @@ from .energy_optimizer import EnergyOptimizer
 
 
 _LOGGER = logging.getLogger(__name__)
+
+# NOTE: Number entities use `_attr_suggested_object_id = f"{DOMAIN}_{number_type}"` in `number.py`,
+# so the runtime entity_id is typically `number.battery_energy_trading_<number_type>`.
+_MIN_EXPORT_PRICE_ENTITY_ID = f"number.{DOMAIN}_{NUMBER_MIN_EXPORT_PRICE}"
 
 
 async def async_setup_entry(
@@ -285,7 +290,18 @@ class LowPriceSensor(BatteryTradingBinarySensor):
 
         try:
             current_price = float(nordpool_state.state)
-            return current_price <= DEFAULT_MIN_EXPORT_PRICE
+            # Use the configured threshold from the number entity when available.
+            threshold = DEFAULT_MIN_EXPORT_PRICE
+            min_export_price_state = self.hass.states.get(_MIN_EXPORT_PRICE_ENTITY_ID)
+            if (
+                min_export_price_state
+                and getattr(min_export_price_state, "entity_id", None)
+                == _MIN_EXPORT_PRICE_ENTITY_ID
+                and min_export_price_state.state not in ("unknown", "unavailable")
+            ):
+                threshold = float(min_export_price_state.state)
+
+            return current_price <= threshold
         except (ValueError, TypeError):
             return False
 
@@ -317,7 +333,18 @@ class ExportProfitableSensor(BatteryTradingBinarySensor):
 
         try:
             current_price = float(nordpool_state.state)
-            return current_price > DEFAULT_MIN_EXPORT_PRICE
+            # Use the configured threshold from the number entity when available.
+            threshold = DEFAULT_MIN_EXPORT_PRICE
+            min_export_price_state = self.hass.states.get(_MIN_EXPORT_PRICE_ENTITY_ID)
+            if (
+                min_export_price_state
+                and getattr(min_export_price_state, "entity_id", None)
+                == _MIN_EXPORT_PRICE_ENTITY_ID
+                and min_export_price_state.state not in ("unknown", "unavailable")
+            ):
+                threshold = float(min_export_price_state.state)
+
+            return current_price > threshold
         except (ValueError, TypeError):
             return False
 

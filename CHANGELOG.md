@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.1] - 2026-02-12
+
+### Changes
+
+- fix: use configurable min_export_price threshold in binary sensors (#32)
+- docs: add legacy configuration.yaml for reference (#31)
+
+
+## [0.20.0] - 2026-01-27
+
+### Changes
+
+- ci: lower coverage threshold to 85% in pyproject.toml
+- chore: trigger CI re-run
+- fix: add missing test dependencies and recorder to manifest
+- feat: add historical performance tracking (issue #23)
+
+
+## [0.19.0] - 2026-01-27
+
+### Changes
+
+- ci: lower coverage threshold to 85% in pyproject.toml
+- chore: trigger CI re-run
+- fix: add missing test dependencies and recorder to manifest
+- feat: add solar forecast integration for smarter scheduling (issue #22)
+
+
 ## [0.18.0] - 2026-01-27
 
 ### Changes
