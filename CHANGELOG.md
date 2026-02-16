@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.0] - 2026-02-16
+
+### Changes
+
+- style: format automation_installer.py with ruff
+- feat: add midnight safety reset automation
+
+
 ## [0.20.1] - 2026-02-12
 
 ### Changes
