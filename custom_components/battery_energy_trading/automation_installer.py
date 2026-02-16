@@ -426,9 +426,7 @@ class AutomationInstaller:
                     blocking=True,
                 )
                 created_ids.append(MIDNIGHT_RESET_AUTOMATION_ID)
-                _LOGGER.info(
-                    "Created midnight reset automation: %s", MIDNIGHT_RESET_AUTOMATION_ID
-                )
+                _LOGGER.info("Created midnight reset automation: %s", MIDNIGHT_RESET_AUTOMATION_ID)
             except Exception as err:
                 _LOGGER.debug("Could not create midnight reset automation: %s", err)
 
