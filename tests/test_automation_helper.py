@@ -167,6 +167,7 @@ async def test_generate_all_automations_with_control_type():
     assert "Sungrow Scripts" in all_yaml
     assert "Battery Trading: Smart Discharge Control" in all_yaml
     assert "Battery Trading: Smart Charging Control" in all_yaml
+    assert "Battery Trading: Midnight Safety Reset" in all_yaml
 
 
 @pytest.mark.asyncio
@@ -210,3 +211,80 @@ async def test_default_control_type_is_modbus():
     # Should use Modbus control by default
     assert "select.sungrow_ems_mode" in automation_yaml
     assert "number.sungrow_forced_discharging_power" in automation_yaml
+
+
+@pytest.mark.asyncio
+async def test_generate_midnight_reset_modbus():
+    """Test generating midnight safety reset automation for Modbus control."""
+    generator = AutomationScriptGenerator(
+        nordpool_entity="sensor.nordpool_kwh_se3_eur_3_10_025",
+        battery_level_entity="sensor.sungrow_battery_level",
+    )
+
+    automation_yaml = generator.generate_midnight_reset_automation()
+
+    assert "automation:" in automation_yaml
+    assert "Midnight Safety Reset" in automation_yaml
+    assert "battery_trading_midnight_reset" in automation_yaml
+    assert 'at: "00:00:00"' in automation_yaml
+    assert "binary_sensor.battery_energy_trading_forced_discharge" in automation_yaml
+    assert "binary_sensor.battery_energy_trading_cheapest_hours" in automation_yaml
+    assert "select.sungrow_ems_mode" in automation_yaml
+    assert "Self-consumption" in automation_yaml
+    assert "number.sungrow_forced_discharging_power" in automation_yaml
+    assert "number.sungrow_forced_charging_power" in automation_yaml
+    # Should NOT contain Forced Mode - this is a reset automation
+    assert "Forced Mode" not in automation_yaml
+
+
+@pytest.mark.asyncio
+async def test_generate_midnight_reset_scripts():
+    """Test generating midnight safety reset automation for script-based control."""
+    options = {
+        CONF_INVERTER_CONTROL_TYPE: INVERTER_CONTROL_SUNGROW_SCRIPTS,
+        CONF_CUSTOM_DISCHARGE_SERVICE: "script.turn_on",
+        CONF_CUSTOM_DISCHARGE_ENTITY: DEFAULT_SUNGROW_SCRIPT_DISCHARGE,
+        CONF_CUSTOM_CHARGE_SERVICE: "script.turn_on",
+        CONF_CUSTOM_CHARGE_ENTITY: DEFAULT_SUNGROW_SCRIPT_CHARGE,
+        CONF_CUSTOM_NORMAL_SERVICE: "script.turn_on",
+        CONF_CUSTOM_NORMAL_ENTITY: DEFAULT_SUNGROW_SCRIPT_NORMAL,
+    }
+    generator = AutomationScriptGenerator(
+        nordpool_entity="sensor.nordpool_kwh_se3_eur_3_10_025",
+        battery_level_entity="sensor.sungrow_battery_level",
+        options=options,
+    )
+
+    automation_yaml = generator.generate_midnight_reset_automation()
+
+    assert "Midnight Safety Reset" in automation_yaml
+    assert 'at: "00:00:00"' in automation_yaml
+    assert "script.turn_on" in automation_yaml
+    assert DEFAULT_SUNGROW_SCRIPT_NORMAL in automation_yaml
+    # Should NOT contain Modbus entities
+    assert "select.sungrow_ems_mode" not in automation_yaml
+
+
+@pytest.mark.asyncio
+async def test_generate_midnight_reset_custom():
+    """Test generating midnight safety reset automation for custom control."""
+    options = {
+        CONF_INVERTER_CONTROL_TYPE: INVERTER_CONTROL_CUSTOM,
+        CONF_CUSTOM_DISCHARGE_SERVICE: "homeassistant.turn_on",
+        CONF_CUSTOM_DISCHARGE_ENTITY: "input_boolean.my_discharge_mode",
+        CONF_CUSTOM_CHARGE_SERVICE: "homeassistant.turn_on",
+        CONF_CUSTOM_CHARGE_ENTITY: "input_boolean.my_charge_mode",
+        CONF_CUSTOM_NORMAL_SERVICE: "homeassistant.turn_off",
+        CONF_CUSTOM_NORMAL_ENTITY: "input_boolean.my_discharge_mode",
+    }
+    generator = AutomationScriptGenerator(
+        nordpool_entity="sensor.nordpool_kwh_se3_eur_3_10_025",
+        battery_level_entity="sensor.custom_battery_level",
+        options=options,
+    )
+
+    automation_yaml = generator.generate_midnight_reset_automation()
+
+    assert "Midnight Safety Reset" in automation_yaml
+    assert "homeassistant.turn_off" in automation_yaml
+    assert "input_boolean.my_discharge_mode" in automation_yaml

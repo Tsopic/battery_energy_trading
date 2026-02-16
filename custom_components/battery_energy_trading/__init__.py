@@ -40,6 +40,7 @@ SERVICE_UNINSTALL_AUTOMATIONS = "uninstall_automations"
 AUTOMATION_IDS = [
     "battery_trading_auto_discharge",
     "battery_trading_auto_charging",
+    "battery_trading_midnight_reset",
 ]
 
 

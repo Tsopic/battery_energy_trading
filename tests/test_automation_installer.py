@@ -7,6 +7,7 @@ import pytest
 from custom_components.battery_energy_trading.automation_installer import (
     CHARGING_AUTOMATION_ID,
     DISCHARGE_AUTOMATION_ID,
+    MIDNIGHT_RESET_AUTOMATION_ID,
     AutomationInstaller,
 )
 from custom_components.battery_energy_trading.const import (
@@ -213,9 +214,10 @@ class TestAutomationStatus:
         status = installer.get_automation_status()
 
         assert len(status["installed"]) == 0
-        assert len(status["missing"]) == 2
+        assert len(status["missing"]) == 3
         assert DISCHARGE_AUTOMATION_ID in status["missing"]
         assert CHARGING_AUTOMATION_ID in status["missing"]
+        assert MIDNIGHT_RESET_AUTOMATION_ID in status["missing"]
 
     def test_get_automation_status_one_installed(self, mock_hass, mock_config_entry_modbus):
         """Test status when one automation is installed."""
@@ -234,9 +236,10 @@ class TestAutomationStatus:
         status = installer.get_automation_status()
 
         assert len(status["installed"]) == 1
-        assert len(status["missing"]) == 1
+        assert len(status["missing"]) == 2
         assert status["installed"][0]["id"] == DISCHARGE_AUTOMATION_ID
         assert CHARGING_AUTOMATION_ID in status["missing"]
+        assert MIDNIGHT_RESET_AUTOMATION_ID in status["missing"]
 
     def test_get_automation_status_all_installed(self, mock_hass, mock_config_entry_modbus):
         """Test status when all automations are installed."""
@@ -252,7 +255,7 @@ class TestAutomationStatus:
         installer = AutomationInstaller(mock_hass, mock_config_entry_modbus)
         status = installer.get_automation_status()
 
-        assert len(status["installed"]) == 2
+        assert len(status["installed"]) == 3
         assert len(status["missing"]) == 0
 
 
@@ -283,9 +286,10 @@ class TestInstallAutomations:
 
         created_ids = await installer.async_install_automations()
 
-        # Should return both automation IDs
+        # Should return all three automation IDs
         assert DISCHARGE_AUTOMATION_ID in created_ids
         assert CHARGING_AUTOMATION_ID in created_ids
+        assert MIDNIGHT_RESET_AUTOMATION_ID in created_ids
 
 
 class TestUninstallAutomations:
@@ -328,7 +332,73 @@ class TestUninstallAutomations:
 
             removed_ids = await installer.async_uninstall_automations()
 
-        # Should have attempted to remove both automations
-        assert len(removed_ids) == 2
+        # Should have attempted to remove all three automations
+        assert len(removed_ids) == 3
         assert DISCHARGE_AUTOMATION_ID in removed_ids
         assert CHARGING_AUTOMATION_ID in removed_ids
+        assert MIDNIGHT_RESET_AUTOMATION_ID in removed_ids
+
+
+class TestMidnightResetAutomationConfig:
+    """Tests for midnight safety reset automation configuration."""
+
+    def test_modbus_midnight_reset_config(self, mock_hass, mock_config_entry_modbus):
+        """Test midnight reset config for Modbus control type."""
+        installer = AutomationInstaller(mock_hass, mock_config_entry_modbus)
+        config = installer._get_midnight_reset_automation_config()
+
+        assert config["id"] == MIDNIGHT_RESET_AUTOMATION_ID
+        assert config["alias"] == "Battery Trading: Midnight Safety Reset"
+        assert "Auto-installed" in config["description"]
+
+        # Trigger at midnight
+        assert len(config["trigger"]) == 1
+        assert config["trigger"][0]["platform"] == "time"
+        assert config["trigger"][0]["at"] == "00:00:00"
+
+        # Conditions: both binary sensors must be off
+        assert len(config["condition"]) == 2
+        assert config["condition"][0]["entity_id"] == (
+            "binary_sensor.battery_energy_trading_forced_discharge"
+        )
+        assert config["condition"][0]["state"] == "off"
+        assert config["condition"][1]["entity_id"] == (
+            "binary_sensor.battery_energy_trading_cheapest_hours"
+        )
+        assert config["condition"][1]["state"] == "off"
+
+        # Actions: reset to self-consumption and zero power
+        assert len(config["action"]) == 3
+        assert config["action"][0]["service"] == "select.select_option"
+        assert config["action"][0]["target"]["entity_id"] == DEFAULT_SUNGROW_MODBUS_EMS_MODE
+        assert config["action"][0]["data"]["option"] == "Self-consumption"
+        assert config["action"][1]["target"]["entity_id"] == DEFAULT_SUNGROW_MODBUS_DISCHARGE_POWER
+        assert config["action"][1]["data"]["value"] == 0
+        assert config["action"][2]["target"]["entity_id"] == DEFAULT_SUNGROW_MODBUS_CHARGE_POWER
+        assert config["action"][2]["data"]["value"] == 0
+
+    def test_scripts_midnight_reset_config(self, mock_hass, mock_config_entry_scripts):
+        """Test midnight reset config for script control type."""
+        installer = AutomationInstaller(mock_hass, mock_config_entry_scripts)
+        config = installer._get_midnight_reset_automation_config()
+
+        assert config["id"] == MIDNIGHT_RESET_AUTOMATION_ID
+
+        # Should call normal mode script
+        assert len(config["action"]) == 1
+        assert config["action"][0]["service"] == "script.turn_on"
+        assert config["action"][0]["target"]["entity_id"] == (
+            "script.sg_set_self_consumption_mode"
+        )
+
+    def test_custom_midnight_reset_config(self, mock_hass, mock_config_entry_custom):
+        """Test midnight reset config for custom control type."""
+        installer = AutomationInstaller(mock_hass, mock_config_entry_custom)
+        config = installer._get_midnight_reset_automation_config()
+
+        assert config["id"] == MIDNIGHT_RESET_AUTOMATION_ID
+
+        # Should call custom normal service
+        assert len(config["action"]) == 1
+        assert config["action"][0]["service"] == "homeassistant.turn_off"
+        assert config["action"][0]["target"]["entity_id"] == "input_boolean.discharge_mode"

@@ -113,6 +113,62 @@ automation:
               option: "Self-consumption"
 """
 
+# Template for midnight safety reset (Modbus control)
+MIDNIGHT_RESET_MODBUS_TEMPLATE = """
+automation:
+  - alias: "Battery Trading: Midnight Safety Reset"
+    description: "Auto-generated: Reset inverter to Self-consumption at midnight if no active slots"
+    id: battery_trading_midnight_reset
+    trigger:
+      - platform: time
+        at: "00:00:00"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.battery_energy_trading_forced_discharge
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.battery_energy_trading_cheapest_hours
+        state: 'off'
+    action:
+      - service: select.select_option
+        target:
+          entity_id: {ems_mode_entity}
+        data:
+          option: "Self-consumption"
+      - service: number.set_value
+        target:
+          entity_id: {discharge_power_entity}
+        data:
+          value: 0
+      - service: number.set_value
+        target:
+          entity_id: {charge_power_entity}
+        data:
+          value: 0
+"""
+
+# Template for midnight safety reset (script-based control)
+MIDNIGHT_RESET_SCRIPT_TEMPLATE = """
+automation:
+  - alias: "Battery Trading: Midnight Safety Reset"
+    description: "Auto-generated: Reset inverter to Self-consumption at midnight if no active slots"
+    id: battery_trading_midnight_reset
+    trigger:
+      - platform: time
+        at: "00:00:00"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.battery_energy_trading_forced_discharge
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.battery_energy_trading_cheapest_hours
+        state: 'off'
+    action:
+      - service: {normal_service}
+        target:
+          entity_id: {normal_entity}
+"""
+
 # Template for script-based control (Sungrow scripts or custom)
 DISCHARGE_AUTOMATION_SCRIPT_TEMPLATE = """
 automation:
@@ -249,6 +305,16 @@ class AutomationScriptGenerator:
         entities = self._get_script_entities()
         return CHARGING_AUTOMATION_SCRIPT_TEMPLATE.format(**entities)
 
+    def generate_midnight_reset_automation(self) -> str:
+        """Generate midnight safety reset automation YAML."""
+        if self.control_type == INVERTER_CONTROL_SUNGROW_MODBUS:
+            entities = self._get_modbus_entities()
+            return MIDNIGHT_RESET_MODBUS_TEMPLATE.format(**entities)
+
+        # Script-based control (sungrow_scripts or custom)
+        entities = self._get_script_entities()
+        return MIDNIGHT_RESET_SCRIPT_TEMPLATE.format(**entities)
+
     def get_control_type_description(self) -> str:
         """Get a human-readable description of the control type."""
         if self.control_type == INVERTER_CONTROL_SUNGROW_MODBUS:
@@ -269,4 +335,6 @@ class AutomationScriptGenerator:
 {self.generate_discharge_automation()}
 
 {self.generate_charging_automation()}
+
+{self.generate_midnight_reset_automation()}
 """

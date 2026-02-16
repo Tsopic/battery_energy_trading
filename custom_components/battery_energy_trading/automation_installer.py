@@ -32,6 +32,7 @@ _LOGGER = logging.getLogger(__name__)
 # Automation IDs used by this integration
 DISCHARGE_AUTOMATION_ID = "battery_trading_auto_discharge"
 CHARGING_AUTOMATION_ID = "battery_trading_auto_charging"
+MIDNIGHT_RESET_AUTOMATION_ID = "battery_trading_midnight_reset"
 
 
 class AutomationInstaller:
@@ -276,6 +277,66 @@ class AutomationInstaller:
 
         return base_config
 
+    def _get_midnight_reset_automation_config(self) -> dict[str, Any]:
+        """Generate midnight safety reset automation configuration."""
+        base_config: dict[str, Any] = {
+            "id": MIDNIGHT_RESET_AUTOMATION_ID,
+            "alias": "Battery Trading: Midnight Safety Reset",
+            "description": f"Auto-installed by Battery Energy Trading integration (entry: {self.config_entry.entry_id})",
+            "trigger": [
+                {
+                    "platform": "time",
+                    "at": "00:00:00",
+                },
+            ],
+            "condition": [
+                {
+                    "condition": "state",
+                    "entity_id": "binary_sensor.battery_energy_trading_forced_discharge",
+                    "state": "off",
+                },
+                {
+                    "condition": "state",
+                    "entity_id": "binary_sensor.battery_energy_trading_cheapest_hours",
+                    "state": "off",
+                },
+            ],
+            "mode": "single",
+        }
+
+        if self._control_type == INVERTER_CONTROL_SUNGROW_MODBUS:
+            base_config["action"] = [
+                {
+                    "service": "select.select_option",
+                    "target": {"entity_id": DEFAULT_SUNGROW_MODBUS_EMS_MODE},
+                    "data": {"option": "Self-consumption"},
+                },
+                {
+                    "service": "number.set_value",
+                    "target": {"entity_id": DEFAULT_SUNGROW_MODBUS_DISCHARGE_POWER},
+                    "data": {"value": 0},
+                },
+                {
+                    "service": "number.set_value",
+                    "target": {"entity_id": DEFAULT_SUNGROW_MODBUS_CHARGE_POWER},
+                    "data": {"value": 0},
+                },
+            ]
+        else:
+            normal_service = self.config_entry.options.get(
+                CONF_CUSTOM_NORMAL_SERVICE, "script.turn_on"
+            )
+            normal_entity = self.config_entry.options.get(CONF_CUSTOM_NORMAL_ENTITY, "")
+
+            base_config["action"] = [
+                {
+                    "service": normal_service,
+                    "target": {"entity_id": normal_entity},
+                }
+            ]
+
+        return base_config
+
     async def async_install_automations(self) -> list[str]:
         """Install automations programmatically using Home Assistant's automation helpers.
 
@@ -287,6 +348,7 @@ class AutomationInstaller:
         # Get automation configurations
         discharge_config = self._get_discharge_automation_config()
         charging_config = self._get_charging_automation_config()
+        midnight_reset_config = self._get_midnight_reset_automation_config()
 
         # Try to create automations using the automation.create service if available
         # Note: This is the preferred method but requires HA 2023.4+
@@ -320,6 +382,7 @@ class AutomationInstaller:
             self.hass.data[DOMAIN]["pending_automations"] = {
                 "discharge": discharge_config,
                 "charging": charging_config,
+                "midnight_reset": midnight_reset_config,
             }
 
             # Try using the automation.create service (if available in newer HA versions)
@@ -354,6 +417,21 @@ class AutomationInstaller:
             except Exception as err:
                 _LOGGER.debug("Could not create charging automation: %s", err)
 
+            try:
+                # Create midnight safety reset automation
+                await self.hass.services.async_call(
+                    AUTOMATION_DOMAIN,
+                    "create",
+                    midnight_reset_config,
+                    blocking=True,
+                )
+                created_ids.append(MIDNIGHT_RESET_AUTOMATION_ID)
+                _LOGGER.info(
+                    "Created midnight reset automation: %s", MIDNIGHT_RESET_AUTOMATION_ID
+                )
+            except Exception as err:
+                _LOGGER.debug("Could not create midnight reset automation: %s", err)
+
             # If direct creation failed, store configs and fire event with YAML
             if not created_ids:
                 _LOGGER.info(
@@ -381,7 +459,11 @@ class AutomationInstaller:
                 )
 
                 # Return the IDs that would be created
-                created_ids = [DISCHARGE_AUTOMATION_ID, CHARGING_AUTOMATION_ID]
+                created_ids = [
+                    DISCHARGE_AUTOMATION_ID,
+                    CHARGING_AUTOMATION_ID,
+                    MIDNIGHT_RESET_AUTOMATION_ID,
+                ]
 
         except Exception as err:
             _LOGGER.error("Failed to install automations: %s", err)
@@ -401,7 +483,11 @@ class AutomationInstaller:
         entity_registry = er.async_get(self.hass)
 
         # Find and remove automations by their unique IDs
-        for automation_id in [DISCHARGE_AUTOMATION_ID, CHARGING_AUTOMATION_ID]:
+        for automation_id in [
+            DISCHARGE_AUTOMATION_ID,
+            CHARGING_AUTOMATION_ID,
+            MIDNIGHT_RESET_AUTOMATION_ID,
+        ]:
             # Look for entity with matching unique_id
             entity_id = f"automation.{automation_id}"
 
@@ -459,7 +545,11 @@ class AutomationInstaller:
             "missing": [],
         }
 
-        for automation_id in [DISCHARGE_AUTOMATION_ID, CHARGING_AUTOMATION_ID]:
+        for automation_id in [
+            DISCHARGE_AUTOMATION_ID,
+            CHARGING_AUTOMATION_ID,
+            MIDNIGHT_RESET_AUTOMATION_ID,
+        ]:
             entity_id = f"automation.{automation_id}"
             state = self.hass.states.get(entity_id)
 
